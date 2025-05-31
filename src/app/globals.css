@@ -1,0 +1,93 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+@layer base {
+  :root {
+    --background: 184 26% 87%; /* Light Blue */
+    --foreground: 210 20% 20%; /* Darker blue-grey for text */
+    --card: 0 0% 100%; /* White for cards */
+    --card-foreground: 210 20% 20%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 20% 20%;
+    --primary: 185 26% 60%; /* Soft Blue */
+    --primary-foreground: 0 0% 100%; /* White */
+    --secondary: 184 26% 80%; /* Slightly darker Light Blue */
+    --secondary-foreground: 185 26% 30%; /* Darker Soft Blue for text on secondary */
+    --muted: 184 26% 83%; /* Muted variant of background */
+    --muted-foreground: 185 26% 40%; /* Muted text */
+    --accent: 167 14% 60%; /* Muted Green */
+    --accent-foreground: 0 0% 100%; /* White for text on accent */
+    --destructive: 0 72% 51%; /* Standard red */
+    --destructive-foreground: 0 0% 98%;
+    --border: 184 20% 75%; /* Border color based on background */
+    --input: 0 0% 100%; /* White for input background */
+    --ring: 185 26% 60%; /* Primary color for rings */
+    --chart-1: 185 26% 60%; /* Soft Blue */
+    --chart-2: 167 14% 60%; /* Muted Green */
+    --chart-3: 210 20% 50%; /* A neutral blue-grey */
+    --chart-4: 25 80% 60%; /* A warm color for contrast if needed */
+    --chart-5: 300 50% 60%; /* A cool color for contrast if needed */
+    --radius: 0.5rem;
+
+    /* Sidebar specific theme variables */
+    --sidebar-background: 185 26% 50%; /* Darker Soft Blue */
+    --sidebar-foreground: 0 0% 98%; /* White text */
+    --sidebar-primary: 0 0% 98%; /* White for active/primary elements in sidebar */
+    --sidebar-primary-foreground: 185 26% 50%; /* Darker Soft Blue for text on sidebar primary */
+    --sidebar-accent: 185 26% 60%; /* Soft Blue (same as main primary) for hover */
+    --sidebar-accent-foreground: 0 0% 98%; /* White text */
+    --sidebar-border: 185 26% 45%; /* Slightly darker border for sidebar */
+    --sidebar-ring: 0 0% 98%; /* White ring for focus on sidebar elements */
+  }
+
+  .dark {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 185 26% 60%; /* Soft Blue - keep consistent if desired for dark mode */
+    --primary-foreground: 240 10% 3.9%; 
+    --secondary: 0 0% 14.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 14.9%;
+    --muted-foreground: 0 0% 63.9%;
+    --accent: 167 14% 50%; /* Muted Green - slightly adjusted for dark mode */
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 14.9%;
+    --input: 0 0% 14.9%;
+    --ring: 185 26% 70%; /* Lighter Soft Blue for rings in dark mode */
+    --chart-1: 185 26% 60%;
+    --chart-2: 167 14% 50%;
+    --chart-3: 210 20% 70%;
+    --chart-4: 25 80% 70%;
+    --chart-5: 300 50% 70%;
+
+    /* Dark Sidebar specific theme variables */
+    --sidebar-background: 240 8% 12%; /* Darker base for sidebar */
+    --sidebar-foreground: 0 0% 95%; /* Light text */
+    --sidebar-primary: 185 26% 60%; /* Soft Blue for active/primary elements */
+    --sidebar-primary-foreground: 0 0% 98%; /* White text on primary */
+    --sidebar-accent: 240 5% 20%; /* Darker accent for hover */
+    --sidebar-accent-foreground: 0 0% 95%; /* Light text on accent */
+    --sidebar-border: 240 5% 18%; /* Border for sidebar */
+    --sidebar-ring: 185 26% 70%; /* Lighter Soft Blue ring */
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
