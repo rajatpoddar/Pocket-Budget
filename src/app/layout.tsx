@@ -26,6 +26,7 @@ export default function RootLayout({
         {/* Metadata can be managed per-page or in a root server component layout if needed */}
         <title>Pocket Budget - Daily Income & Expenses Tracker</title>
         <meta name='description' content='Daily Income & Expenses Tracker' />
+        <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
