@@ -25,7 +25,7 @@ import { PlusCircle, Edit3, Trash2, DollarSign, Lock, AlertTriangle, Briefcase, 
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from '@/hooks/use-auth';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, query, getDocs, doc, updateDoc, deleteDoc, orderBy } from 'firebase/firestore';
+import { collection, addDoc, query, getDocs, doc, updateDoc, deleteDoc, orderBy, deleteField } from 'firebase/firestore';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
 import { isPast } from 'date-fns';
@@ -62,20 +62,33 @@ export default function IncomeCategoriesPage() {
 
   const canAdd = hasActiveSubscription && (!isTrialActive || !trialLimitReached);
   
-  const canEditCategory = (category: IncomeCategory | null) => {
+  const canEditCategory = (category: IncomeCategory | null | undefined) => {
     if (!category) return canAdd; 
     if (category.name === "Freelance") return hasActiveSubscription; 
-    return hasActiveSubscription && (!isTrialActive || !trialLimitReached || categories.find(c => c.id === category.id)); 
+    // For existing non-Freelance categories, allow edit if trial limit not reached OR if this category is one of the allowed trial items
+    return hasActiveSubscription && (!isTrialActive || !trialLimitReached || categories.slice(0, TRIAL_ITEM_LIMIT).some(c => c.id === category.id));
   };
 
   const addCategoryMutation = useMutation({
-    mutationFn: async (newCategoryData: Omit<IncomeCategory, 'id' | 'userId'>) => {
+    mutationFn: async (newCategoryData: Omit<IncomeCategory, 'id' | 'userId' | 'dailyFixedAmount'> & { dailyFixedAmount?: number }) => {
       if (!user?.uid) throw new Error("User not authenticated");
       if (!canAdd) throw new Error("Action restricted by subscription or trial limits.");
-      return addDoc(collection(db, "users", user.uid, "incomeCategories"), {
-        ...newCategoryData,
+      
+      const dataToSave: any = {
+        name: newCategoryData.name,
+        description: newCategoryData.description || "",
+        hasProjectTracking: newCategoryData.hasProjectTracking ?? false,
+        isDailyFixedIncome: newCategoryData.isDailyFixedIncome ?? false,
         userId: user.uid,
-      });
+      };
+
+      if (dataToSave.isDailyFixedIncome && typeof newCategoryData.dailyFixedAmount === 'number' && newCategoryData.dailyFixedAmount > 0) {
+        dataToSave.dailyFixedAmount = newCategoryData.dailyFixedAmount;
+      } else {
+        dataToSave.dailyFixedAmount = deleteField(); // Ensure it's removed if not applicable
+      }
+      
+      return addDoc(collection(db, "users", user.uid, "incomeCategories"), dataToSave);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['incomeCategories', user?.uid] });
@@ -88,12 +101,25 @@ export default function IncomeCategoriesPage() {
   });
 
   const updateCategoryMutation = useMutation({
-    mutationFn: async (updatedCategory: IncomeCategory) => {
+    mutationFn: async (updatedCategory: IncomeCategory & { dailyFixedAmount?: number }) => { // Ensure dailyFixedAmount is part of the type for updatedCategory
       if (!user?.uid || !updatedCategory.id) throw new Error("User or category ID missing");
       if (!canEditCategory(updatedCategory)) throw new Error("Action restricted by subscription or trial limits.");
       
       const categoryRef = doc(db, "users", user.uid, "incomeCategories", updatedCategory.id);
-      const { id, userId, ...dataToUpdate } = updatedCategory;
+      
+      const dataToUpdate: any = {
+        name: updatedCategory.name,
+        description: updatedCategory.description || "",
+        hasProjectTracking: updatedCategory.hasProjectTracking ?? false,
+        isDailyFixedIncome: updatedCategory.isDailyFixedIncome ?? false,
+      };
+
+      if (dataToUpdate.isDailyFixedIncome && typeof updatedCategory.dailyFixedAmount === 'number' && updatedCategory.dailyFixedAmount > 0) {
+        dataToUpdate.dailyFixedAmount = updatedCategory.dailyFixedAmount;
+      } else {
+        dataToUpdate.dailyFixedAmount = deleteField();
+      }
+      
       return updateDoc(categoryRef, dataToUpdate);
     },
     onSuccess: (data, variables) => {
@@ -130,9 +156,16 @@ export default function IncomeCategoriesPage() {
     }
   });
 
-  const handleFormSubmit = (values: Omit<IncomeCategory, 'id' | 'userId'>) => {
+  const handleFormSubmit = (values: Omit<IncomeCategory, 'id' | 'userId' | 'dailyFixedAmount'> & { dailyFixedAmount?: number }) => {
     if (editingCategory) {
-      updateCategoryMutation.mutate({ ...editingCategory, ...values });
+      // Ensure editingCategory (which is IncomeCategory | null) is spread correctly with new values
+      const categoryDataForUpdate = { 
+        ...editingCategory, // Spread the existing category data
+        ...values,         // Override with form values
+        id: editingCategory!.id, // Ensure ID is present
+        userId: editingCategory!.userId // Ensure userId is present
+      } as IncomeCategory & { dailyFixedAmount?: number }; // Type assertion
+      updateCategoryMutation.mutate(categoryDataForUpdate);
     } else {
       addCategoryMutation.mutate(values);
     }
@@ -240,7 +273,7 @@ export default function IncomeCategoriesPage() {
                 <AlertTriangle className="h-5 w-5 mr-3" />
                 <div>
                     <p className="font-bold">Trial Limit Reached</p>
-                    <p className="text-sm">You've reached the trial limit of {TRIAL_ITEM_LIMIT} income categories. <Link href="/subscription" className="underline font-medium hover:text-blue-800">Upgrade your plan</Link> to add more.</p>
+                    <p className="text-sm">You've reached the trial limit of ${TRIAL_ITEM_LIMIT} income categories. <Link href="/subscription" className="underline font-medium hover:text-blue-800">Upgrade your plan</Link> to add more.</p>
                 </div>
             </div>
         </div>
@@ -282,10 +315,10 @@ export default function IncomeCategoriesPage() {
               let typeBadge = <Badge variant="outline">General</Badge>;
               if (category.hasProjectTracking) {
                 IconComponent = Briefcase;
-                typeBadge = <Badge variant="secondary" className="whitespace-nowrap">Project Tracking</Badge>;
+                typeBadge = <Badge variant="secondary">Project Tracking</Badge>;
               } else if (category.isDailyFixedIncome) {
                 IconComponent = Repeat;
-                typeBadge = <Badge variant="default" className="whitespace-nowrap bg-blue-500 hover:bg-blue-600">Daily Fixed: ₹{category.dailyFixedAmount?.toLocaleString()}</Badge>;
+                typeBadge = <Badge variant="default" className="bg-blue-500 hover:bg-blue-600">Daily Fixed: ₹{category.dailyFixedAmount?.toLocaleString()}</Badge>;
               }
               
               const isDefaultFreelanceCategory = category.name === "Freelance";

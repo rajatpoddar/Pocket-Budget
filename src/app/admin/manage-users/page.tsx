@@ -273,7 +273,7 @@ export default function ManageUsersPage() {
                             user.subscriptionStatus === 'pending_confirmation' ? 'outline' :
                             (user.subscriptionStatus === 'expired' || user.subscriptionStatus === 'cancelled') ? 'destructive' :
                             'outline'
-                          } className="capitalize whitespace-nowrap">
+                          } className="capitalize">
                             {user.subscriptionStatus.replace('_', ' ')}
                           </Badge>
                         ) : <Badge variant="outline">None</Badge>}
