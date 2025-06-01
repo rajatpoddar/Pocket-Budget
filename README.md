@@ -3,7 +3,7 @@
 
 Pocket Budget is a comprehensive web application designed to help users manage their personal and freelance finances effectively. It offers features for tracking income and expenses, managing client projects, setting budget goals, and understanding financial overviews through a dashboard. The application also includes a subscription model and an admin panel for user and subscription management.
 
-![Pocket Budget Mockup](https://placehold.co/1200x600.png?text=Pocket+Budget+App+Interface)
+![Pocket Budget Mockup](./public/icons/dashboard.png)
 *<p align="center" style="font-size: small; color: grey;">(Replace with an actual screenshot of the application)</p>*
 
 ## Key Features

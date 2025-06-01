@@ -39,7 +39,14 @@ const baseSchema = z.object({
   clientNumber: z.string().optional(),
   clientAddress: z.string().optional(),
   projectCost: z.coerce.number().optional(),
-  numberOfWorkers: z.coerce.number().int().positive("Number of workers must be a positive integer.").optional().or(z.literal('')),
+  numberOfWorkers: z.preprocess(
+    (val) => {
+      if (val === "" || val === null || val === undefined) return undefined;
+      const num = parseFloat(String(val));
+      return isNaN(num) ? undefined : num;
+    },
+    z.number().int("Number of workers must be an integer.").min(0, "Number of workers cannot be negative.").optional()
+  ),
 });
 
 
@@ -66,14 +73,16 @@ export function AddIncomeForm({ onSubmit, categories, clients, initialData, onCa
       clientNumber: initialData?.freelanceDetails?.clientNumber || "",
       clientAddress: initialData?.freelanceDetails?.clientAddress || "",
       projectCost: initialData?.freelanceDetails?.projectCost || undefined,
-      numberOfWorkers: initialData?.freelanceDetails?.numberOfWorkers || undefined,
+      numberOfWorkers: initialData?.freelanceDetails?.numberOfWorkers !== undefined ? initialData.freelanceDetails.numberOfWorkers : undefined,
     },
   });
 
   const selectedCategoryId = form.watch("categoryId");
   const selectedExistingClientId = form.watch("existingClientId");
 
-  const [currentCategory, setCurrentCategory] = useState<IncomeCategory | undefined>(undefined);
+  const [currentCategory, setCurrentCategory] = useState<IncomeCategory | undefined>(
+    initialData?.categoryId ? categories.find(c => c.id === initialData.categoryId) : undefined
+  );
   const [isNewClientEntry, setIsNewClientEntry] = useState(false);
 
   useEffect(() => {
@@ -84,7 +93,6 @@ export function AddIncomeForm({ onSubmit, categories, clients, initialData, onCa
         setIsNewClientEntry(selectedExistingClientId === NEW_CLIENT_VALUE || !selectedExistingClientId);
     } else {
         setIsNewClientEntry(false);
-        // Clear freelance fields if category does not have project tracking
         form.setValue("existingClientId", "");
         form.setValue("clientName", "");
         form.setValue("clientNumber", "");
@@ -95,9 +103,6 @@ export function AddIncomeForm({ onSubmit, categories, clients, initialData, onCa
     
     if (category?.isDailyFixedIncome && category.dailyFixedAmount !== undefined && !initialData?.amount) {
         form.setValue("amount", category.dailyFixedAmount);
-    } else if (!initialData?.amount && !category?.isDailyFixedIncome) {
-        // If switching from a fixed income category to non-fixed, and no initial amount, reset to 0 or user preference
-        // For now, let's not reset if user already typed something. Only on initial load or category change from fixed.
     }
 
   }, [selectedCategoryId, categories, form, selectedExistingClientId, initialData]);
@@ -124,34 +129,30 @@ export function AddIncomeForm({ onSubmit, categories, clients, initialData, onCa
 
   const handleSubmit = (values: AddIncomeFormValues) => {
     let valid = true;
-    const category = categories.find(c => c.id === values.categoryId);
-    
-    if (category?.hasProjectTracking) {
+    form.clearErrors(); 
+
+    if (currentCategory?.hasProjectTracking) {
       if (isNewClientEntry && (!values.clientName || values.clientName.trim().length < 2)) {
         form.setError("clientName", { type: "manual", message: "Client name must be at least 2 characters for new clients." });
         valid = false;
       }
       if (values.projectCost === undefined || values.projectCost <= 0) {
-        form.setError("projectCost", { type: "manual", message: "Project cost must be a positive number for project-based income." });
+        form.setError("projectCost", { type: "manual", message: "Project cost must be a positive number." });
         valid = false;
       }
       if (values.amount > (values.projectCost || 0)) {
         form.setError("amount", {type: "manual", message: "Amount paid cannot exceed project cost."});
         valid = false;
       }
-      if (values.numberOfWorkers && (isNaN(Number(values.numberOfWorkers)) || Number(values.numberOfWorkers) <= 0 || !Number.isInteger(Number(values.numberOfWorkers)))) {
-        form.setError("numberOfWorkers", { type: "manual", message: "Number of workers must be a positive integer." });
-        valid = false;
-      }
     }
     if (!valid) return;
 
-    const submissionValues = {
-        ...values,
-        numberOfWorkers: values.numberOfWorkers ? Number(values.numberOfWorkers) : undefined,
-    };
-
-    onSubmit(submissionValues, category?.hasProjectTracking && isNewClientEntry, category?.hasProjectTracking);
+    onSubmit(
+        values, 
+        !!(currentCategory?.hasProjectTracking && isNewClientEntry), 
+        currentCategory?.hasProjectTracking
+    );
+    
     if (!initialData) { 
         form.reset({
             description: "",
@@ -202,9 +203,6 @@ export function AddIncomeForm({ onSubmit, categories, clients, initialData, onCa
                   }
                   if (cat?.isDailyFixedIncome && cat.dailyFixedAmount !== undefined) {
                     form.setValue("amount", cat.dailyFixedAmount);
-                  } else if (form.getValues("amount") === currentCategory?.dailyFixedAmount) {
-                     // If previously was fixed, and amount matches, clear it or set to 0
-                     // form.setValue("amount", 0); // Or let user manage
                   }
                 }} 
                 defaultValue={field.value}
@@ -329,10 +327,18 @@ export function AddIncomeForm({ onSubmit, categories, clients, initialData, onCa
                   <FormControl>
                     <Input 
                       type="number" 
-                      placeholder="e.g., 5" 
+                      placeholder="e.g., 5 (can be 0)" 
                       {...field} 
                       value={field.value ?? ""}
-                      onChange={e => field.onChange(e.target.value === "" ? "" : parseInt(e.target.value, 10) || "")}
+                      onChange={e => {
+                        const val = e.target.value;
+                        if (val === "") {
+                          field.onChange(undefined);
+                        } else {
+                          const num = parseFloat(val);
+                          field.onChange(isNaN(num) ? undefined : num);
+                        }
+                      }}
                     />
                   </FormControl>
                   <FormMessage />
@@ -356,7 +362,7 @@ export function AddIncomeForm({ onSubmit, categories, clients, initialData, onCa
                   {...field} 
                   value={field.value ?? ""}
                   onChange={e => field.onChange(parseFloat(e.target.value) || 0)} 
-                  readOnly={currentCategory?.isDailyFixedIncome && currentCategory.dailyFixedAmount === field.value && !initialData} // Example: make read-only if fixed & matches & not editing initialData
+                  readOnly={currentCategory?.isDailyFixedIncome && currentCategory.dailyFixedAmount === field.value && !initialData}
                 />
               </FormControl>
               {currentCategory?.isDailyFixedIncome && currentCategory.dailyFixedAmount === field.value && (
@@ -414,3 +420,4 @@ export function AddIncomeForm({ onSubmit, categories, clients, initialData, onCa
     </Form>
   );
 }
+

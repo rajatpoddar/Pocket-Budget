@@ -27,7 +27,7 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { useAuth } from '@/hooks/use-auth';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, query, getDocs, doc, updateDoc, deleteDoc, Timestamp, orderBy, where } from 'firebase/firestore';
+import { collection, addDoc, query, getDocs, doc, updateDoc, deleteDoc, Timestamp, orderBy, where, deleteField } from 'firebase/firestore';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
@@ -168,18 +168,19 @@ export default function IncomesPage() {
         userId: user.uid,
       };
 
-      const category = incomeCategories.find(c => c.id === incomeData.categoryId);
-      if (category?.hasProjectTracking && incomeData.freelanceDetails) {
+      if (incomeData.freelanceDetails) {
         dataToSave.freelanceDetails = {
-          ...incomeData.freelanceDetails,
+          clientName: incomeData.freelanceDetails.clientName,
+          projectCost: incomeData.freelanceDetails.projectCost,
+          ...(incomeData.freelanceDetails.clientNumber !== undefined && { clientNumber: incomeData.freelanceDetails.clientNumber }),
+          ...(incomeData.freelanceDetails.clientAddress !== undefined && { clientAddress: incomeData.freelanceDetails.clientAddress }),
+          ...(incomeData.freelanceDetails.numberOfWorkers !== undefined && { numberOfWorkers: incomeData.freelanceDetails.numberOfWorkers }),
           duesClearedAt: incomeData.freelanceDetails.duesClearedAt ? Timestamp.fromDate(new Date(incomeData.freelanceDetails.duesClearedAt)) : null,
         };
-         if (incomeData.clientId) {
-          dataToSave.clientId = incomeData.clientId;
-        }
+        dataToSave.clientId = incomeData.clientId || null;
       } else {
-        dataToSave.freelanceDetails = null;
-        dataToSave.clientId = null;
+        dataToSave.freelanceDetails = deleteField(); 
+        dataToSave.clientId = deleteField();
       }
       return addDoc(collection(db, "users", user.uid, "incomes"), dataToSave);
     },
@@ -206,20 +207,25 @@ export default function IncomesPage() {
       const { id, userId, ...dataToUpdate } = updatedIncome;
 
       const finalData: any = {
-          ...dataToUpdate,
+          description: dataToUpdate.description,
+          amount: dataToUpdate.amount,
           date: Timestamp.fromDate(new Date(dataToUpdate.date)),
+          categoryId: dataToUpdate.categoryId,
       };
       
-      const category = incomeCategories.find(c => c.id === dataToUpdate.categoryId);
-      if (category?.hasProjectTracking && dataToUpdate.freelanceDetails) {
+      if (dataToUpdate.freelanceDetails) {
         finalData.freelanceDetails = {
-          ...dataToUpdate.freelanceDetails,
+          clientName: dataToUpdate.freelanceDetails.clientName,
+          projectCost: dataToUpdate.freelanceDetails.projectCost,
+          ...(dataToUpdate.freelanceDetails.clientNumber !== undefined && { clientNumber: dataToUpdate.freelanceDetails.clientNumber }),
+          ...(dataToUpdate.freelanceDetails.clientAddress !== undefined && { clientAddress: dataToUpdate.freelanceDetails.clientAddress }),
+          ...(dataToUpdate.freelanceDetails.numberOfWorkers !== undefined && { numberOfWorkers: dataToUpdate.freelanceDetails.numberOfWorkers }),
           duesClearedAt: dataToUpdate.freelanceDetails.duesClearedAt ? Timestamp.fromDate(new Date(dataToUpdate.freelanceDetails.duesClearedAt)) : null,
         };
         finalData.clientId = dataToUpdate.clientId || null;
       } else {
-        finalData.freelanceDetails = null;
-        finalData.clientId = null;
+        finalData.freelanceDetails = deleteField();
+        finalData.clientId = deleteField();
       }
 
       return updateDoc(incomeRef, finalData);
@@ -257,13 +263,13 @@ export default function IncomesPage() {
   });
 
   const handleFormSubmit = async (
-    values: Omit<Income, 'id' | 'userId' | 'freelanceDetails' | 'clientId'> & {
+    values: Omit<Income, 'id' | 'userId' | 'freelanceDetails' | 'clientId'> & { // This is the type from AddIncomeFormValues
         existingClientId?: string,
         clientName?: string,
         clientNumber?: string,
         clientAddress?: string,
         projectCost?: number,
-        numberOfWorkers?: number
+        numberOfWorkers?: number // This will be number | undefined from Zod
     },
     isNewClient: boolean,
     categoryHasProjectTracking?: boolean
@@ -272,10 +278,11 @@ export default function IncomesPage() {
         toast({ title: "Action Restricted", description: "Please activate your subscription to add or edit incomes.", variant: "destructive"});
         return;
     }
-    let clientId = values.existingClientId === "--new--" || !values.existingClientId ? undefined : values.existingClientId;
-    let freelanceDetails: FreelanceDetails | undefined = undefined;
+    let clientIdFromForm = values.existingClientId === "--new--" || !values.existingClientId ? undefined : values.existingClientId;
+    let finalFreelanceDetails: Partial<FreelanceDetails> | undefined = undefined;
 
     if (categoryHasProjectTracking) {
+        let currentClientId = clientIdFromForm;
         if (isNewClient && values.clientName) {
             try {
                 const newClient = await addClientMutation.mutateAsync({
@@ -283,33 +290,42 @@ export default function IncomesPage() {
                     number: values.clientNumber,
                     address: values.clientAddress,
                 });
-                clientId = newClient.id;
+                currentClientId = newClient.id;
             } catch (error) {
                 return; 
             }
         }
 
-        let finalClientName = values.clientName;
-        if (clientId && !isNewClient) {
-            const existingClient = clients.find(c => c.id === clientId);
-            finalClientName = existingClient?.name || values.clientName;
+        let finalClientNameForDetails = values.clientName;
+        if (currentClientId && !isNewClient) {
+            const existingClient = clients.find(c => c.id === currentClientId);
+            finalClientNameForDetails = existingClient?.name || values.clientName;
         }
 
-        if (values.projectCost && finalClientName) {
-            freelanceDetails = {
-                clientName: finalClientName,
-                clientNumber: values.clientNumber,
-                clientAddress: values.clientAddress,
+        if (values.projectCost && finalClientNameForDetails) {
+            finalFreelanceDetails = {
+                clientName: finalClientNameForDetails,
                 projectCost: values.projectCost,
-                numberOfWorkers: values.numberOfWorkers,
-                duesClearedAt: editingIncome?.freelanceDetails?.duesClearedAt
-                  ? new Date(editingIncome.freelanceDetails.duesClearedAt)
-                  : undefined
             };
+            if (values.clientNumber && values.clientNumber.trim() !== "") {
+                finalFreelanceDetails.clientNumber = values.clientNumber;
+            }
+            if (values.clientAddress && values.clientAddress.trim() !== "") {
+                finalFreelanceDetails.clientAddress = values.clientAddress;
+            }
+            if (typeof values.numberOfWorkers === 'number' && Number.isInteger(values.numberOfWorkers) && values.numberOfWorkers >= 0) {
+                finalFreelanceDetails.numberOfWorkers = values.numberOfWorkers;
+            }
+            if (editingIncome?.freelanceDetails?.duesClearedAt) {
+                 finalFreelanceDetails.duesClearedAt = new Date(editingIncome.freelanceDetails.duesClearedAt);
+            }
         } else {
-            toast({ title: "Missing Project Info", description: "Project cost and client name are required for project-based income.", variant: "destructive"});
+            // Errors for projectCost and clientName (if new) are handled in AddIncomeForm's manual validation
+            // This toast might be redundant if form validation is effective.
+            // toast({ title: "Missing Project Info", description: "Project cost and client name are required for project-based income.", variant: "destructive"});
             return;
         }
+        clientIdFromForm = currentClientId; 
     }
 
     const incomePayload: Omit<Income, 'id' | 'userId'> = {
@@ -317,15 +333,15 @@ export default function IncomesPage() {
         amount: values.amount,
         date: values.date,
         categoryId: values.categoryId,
-        ...(categoryHasProjectTracking && freelanceDetails && { freelanceDetails }),
-        ...(categoryHasProjectTracking && clientId && { clientId }),
     };
     
-    if (!categoryHasProjectTracking) {
-        incomePayload.freelanceDetails = undefined;
-        incomePayload.clientId = undefined;
+    if (categoryHasProjectTracking && finalFreelanceDetails) {
+        incomePayload.freelanceDetails = finalFreelanceDetails as FreelanceDetails;
+        if (clientIdFromForm) {
+            incomePayload.clientId = clientIdFromForm;
+        }
     }
-
+    
     if (editingIncome) {
       updateIncomeMutation.mutate({ ...editingIncome, ...incomePayload });
     } else {
@@ -353,7 +369,7 @@ export default function IncomesPage() {
     }
     setEditingIncome({
         ...income,
-        date: new Date(income.date),
+        date: new Date(income.date), 
         freelanceDetails: income.freelanceDetails ? {
             ...income.freelanceDetails,
             duesClearedAt: income.freelanceDetails.duesClearedAt ? new Date(income.freelanceDetails.duesClearedAt) : undefined,
@@ -381,7 +397,7 @@ export default function IncomesPage() {
     }
     const updatedIncome: Income = {
       ...income,
-      amount: income.freelanceDetails.projectCost,
+      amount: income.freelanceDetails.projectCost, 
       freelanceDetails: {
         ...income.freelanceDetails,
         duesClearedAt: new Date(), 
@@ -408,7 +424,7 @@ export default function IncomesPage() {
             </div>
         )
     }
-    if (incomeList.length === 0) return null; // Don't render empty tables after loading if truly empty
+    if (incomeList.length === 0) return null;
 
     return (
       <div className="rounded-lg border shadow-sm bg-card">
@@ -448,7 +464,7 @@ export default function IncomesPage() {
                           <span className="truncate" title={income.freelanceDetails!.clientName}>{income.freelanceDetails!.clientName}</span>
                         </div>
                           <div>Cost: ₹{income.freelanceDetails!.projectCost.toLocaleString()}</div>
-                          {income.freelanceDetails!.numberOfWorkers && (
+                          {income.freelanceDetails!.numberOfWorkers !== undefined && (
                             <div className="flex items-center">
                               <Users className="w-3 h-3 mr-1.5 text-muted-foreground flex-shrink-0"/>
                               <span>Workers: {income.freelanceDetails!.numberOfWorkers}</span>
@@ -492,7 +508,7 @@ export default function IncomesPage() {
     );
   };
 
-  if (isLoading && incomes.length === 0) { // Show main skeleton only on initial full load
+  if (isLoading && incomes.length === 0) { 
     return (
       <div className="flex flex-col gap-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
@@ -578,10 +594,7 @@ export default function IncomesPage() {
                     onSubmit={handleFormSubmit}
                     categories={incomeCategories}
                     clients={clients}
-                    initialData={editingIncome ? {
-                        ...editingIncome,
-                        date: new Date(editingIncome.date)
-                    } : undefined}
+                    initialData={editingIncome || undefined}
                     onCancel={() => { setIsAddIncomeDialogOpen(false); setEditingIncome(null); }}
                   />
                 ) : (

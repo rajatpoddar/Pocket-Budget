@@ -23,7 +23,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { AddClientForm } from "@/components/client/add-client-form";
-import { PlusCircle, Edit3, Trash2, Users, Phone, MapPin, BadgeIndianRupee } from "lucide-react";
+import { PlusCircle, Edit3, Trash2, Users, Phone, MapPin, BadgeIndianRupee, CheckCircle, Lock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from '@/hooks/use-auth';
 import { db } from '@/lib/firebase';
@@ -63,7 +63,7 @@ const fetchIncomesForClientAggregation = async (userId: string): Promise<Income[
 
 
 export default function ClientsPage() {
-  const { user } = useAuth();
+  const { user, hasActiveSubscription } = useAuth();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -85,7 +85,9 @@ export default function ClientsPage() {
   });
 
   const clientFinancialSummaries: ClientFinancialSummary[] = useMemo(() => {
-    if (isLoadingClients || isLoadingIncomes || !clients.length || !incomes.length) return clients.map(c => ({...c, totalPaid: 0, totalDues: 0}));
+    if (isLoadingClients || isLoadingIncomes || !clients.length) return clients.map(c => ({...c, totalPaid: 0, totalDues: 0}));
+    if (!incomes.length && clients.length > 0 && !isLoadingIncomes) return clients.map(c => ({...c, totalPaid: 0, totalDues: 0}));
+
 
     return clients.map(client => {
       let totalPaid = 0;
@@ -108,6 +110,7 @@ export default function ClientsPage() {
   const addClientMutation = useMutation({
     mutationFn: async (newClientData: Omit<Client, 'id' | 'userId'>) => {
       if (!user?.uid) throw new Error("User not authenticated");
+      if (!hasActiveSubscription) throw new Error("Action restricted by subscription.");
       return addDoc(collection(db, "users", user.uid, "clients"), {
         ...newClientData,
         userId: user.uid,
@@ -126,6 +129,7 @@ export default function ClientsPage() {
   const updateClientMutation = useMutation({
     mutationFn: async (updatedClient: Client) => {
       if (!user?.uid || !updatedClient.id) throw new Error("User or client ID missing");
+      if (!hasActiveSubscription) throw new Error("Action restricted by subscription.");
       const clientRef = doc(db, "users", user.uid, "clients", updatedClient.id);
       const { id, userId, ...dataToUpdate } = updatedClient;
       return updateDoc(clientRef, dataToUpdate);
@@ -144,6 +148,7 @@ export default function ClientsPage() {
   const deleteClientMutation = useMutation({
     mutationFn: async (clientId: string) => {
       if (!user?.uid) throw new Error("User not authenticated");
+      if (!hasActiveSubscription) throw new Error("Action restricted by subscription.");
       const clientRef = doc(db, "users", user.uid, "clients", clientId);
       return deleteDoc(clientRef);
     },
@@ -158,7 +163,62 @@ export default function ClientsPage() {
     }
   });
 
+  const clearClientDuesMutation = useMutation({
+    mutationFn: async (clientId: string) => {
+      if (!user?.uid) throw new Error("User not authenticated.");
+      if (!hasActiveSubscription) throw new Error("Action restricted by subscription.");
+
+      const incomesToUpdate = incomes.filter(
+        (income) =>
+          income.clientId === clientId &&
+          income.freelanceDetails &&
+          !income.freelanceDetails.duesClearedAt &&
+          income.freelanceDetails.projectCost > income.amount
+      );
+
+      if (incomesToUpdate.length === 0) {
+        toast({ title: "No Dues", description: "This client has no outstanding project dues to clear.", variant: "default" });
+        return { noDues: true };
+      }
+
+      const updatePromises = incomesToUpdate.map((incomeToClear) => {
+        if (!incomeToClear.id || !incomeToClear.freelanceDetails) return Promise.resolve(); // Should not happen if filter is correct
+        const incomeRef = doc(db, "users", user!.uid, "incomes", incomeToClear.id);
+        const updatedIncomeData = { // Prepare only fields that need to change
+          amount: incomeToClear.freelanceDetails.projectCost,
+          freelanceDetails: {
+            ...incomeToClear.freelanceDetails,
+            duesClearedAt: Timestamp.fromDate(new Date()),
+          },
+        };
+        return updateDoc(incomeRef, updatedIncomeData);
+      });
+
+      await Promise.all(updatePromises);
+      return { clearedCount: incomesToUpdate.length };
+    },
+    onSuccess: (data, clientId) => {
+      if (data && data.noDues) return;
+
+      const client = clients.find(c => c.id === clientId);
+      toast({ title: "Dues Cleared", description: `All outstanding project dues for ${client?.name || 'the client'} have been marked as cleared. (${data?.clearedCount} income entries updated).` });
+      queryClient.invalidateQueries({ queryKey: ['clients', user?.uid] });
+      queryClient.invalidateQueries({ queryKey: ['allIncomesForClientsPage', user?.uid] });
+      queryClient.invalidateQueries({ queryKey: ['incomes', user?.uid] });
+      queryClient.invalidateQueries({ queryKey: ['recentActivities', user?.uid] });
+      queryClient.invalidateQueries({ queryKey: ['dashboardMetrics', user?.uid] });
+    },
+    onError: (error) => {
+      toast({ title: "Error Clearing Dues", description: `Failed to clear dues: ${error.message}`, variant: "destructive" });
+    }
+  });
+
+
   const handleFormSubmit = (values: { name: string; number?: string; address?: string }) => {
+    if (!hasActiveSubscription) {
+      toast({ title: "Action Restricted", description: "Please activate your subscription to manage clients.", variant: "destructive"});
+      return;
+    }
     if (editingClient) {
       updateClientMutation.mutate({ ...editingClient, ...values });
     } else {
@@ -167,11 +227,19 @@ export default function ClientsPage() {
   };
 
   const handleEdit = (client: Client) => {
+    if (!hasActiveSubscription) {
+      toast({ title: "Action Restricted", description: "Please activate your subscription to manage clients.", variant: "destructive"});
+      return;
+    }
     setEditingClient(client);
     setIsFormDialogOpen(true);
   };
   
   const handleDelete = (clientId: string) => {
+    if (!hasActiveSubscription) {
+      toast({ title: "Action Restricted", description: "Please activate your subscription to manage clients.", variant: "destructive"});
+      return;
+    }
     deleteClientMutation.mutate(clientId);
   };
 
@@ -204,7 +272,13 @@ export default function ClientsPage() {
           if (!open) setEditingClient(null);
         }}>
           <DialogTrigger asChild>
-            <Button onClick={() => {setEditingClient(null); setIsFormDialogOpen(true);}} className="w-full sm:w-auto">
+            <Button 
+              onClick={() => {setEditingClient(null); setIsFormDialogOpen(true);}} 
+              className="w-full sm:w-auto"
+              disabled={!hasActiveSubscription}
+              title={!hasActiveSubscription ? "Activate subscription to add clients" : "Add New Client"}
+            >
+              {!hasActiveSubscription && <Lock className="mr-2 h-4 w-4" />}
               <PlusCircle className="mr-2 h-5 w-5" /> Add New Client
             </Button>
           </DialogTrigger>
@@ -244,7 +318,13 @@ export default function ClientsPage() {
                 <CardTitle className="text-lg font-semibold break-words max-w-full">{client.name}</CardTitle>
                  <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10 -mt-2 -mr-2 flex-shrink-0">
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="text-destructive hover:bg-destructive/10 -mt-2 -mr-2 flex-shrink-0"
+                      disabled={!hasActiveSubscription}
+                      title={!hasActiveSubscription ? "Activate subscription to delete" : "Delete Client"}
+                    >
                       <Trash2 className="h-4 w-4" />
                       <span className="sr-only">Delete Client</span>
                     </Button>
@@ -291,10 +371,37 @@ export default function ClientsPage() {
                 </span>
               </div>
             </CardContent>
-            <CardFooter className="border-t pt-4">
-              <Button variant="outline" size="sm" className="w-full" onClick={() => handleEdit(client)}>
+            <CardFooter className="border-t pt-4 flex flex-col sm:flex-row gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="w-full" 
+                onClick={() => handleEdit(client)}
+                disabled={!hasActiveSubscription}
+                title={!hasActiveSubscription ? "Activate subscription to edit" : "Edit Client"}
+              >
                 <Edit3 className="h-4 w-4 mr-2" /> Edit Client
               </Button>
+              {client.totalDues > 0 && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full text-green-600 border-green-600 hover:bg-green-50 hover:text-green-700"
+                  onClick={() => clearClientDuesMutation.mutate(client.id)}
+                  disabled={!hasActiveSubscription || clearClientDuesMutation.isPending && clearClientDuesMutation.variables === client.id}
+                  title={!hasActiveSubscription ? "Activate subscription to clear dues" : "Mark all outstanding project dues for this client as cleared"}
+                >
+                  {clearClientDuesMutation.isPending && clearClientDuesMutation.variables === client.id ? (
+                    <svg className="animate-spin -ml-1 mr-3 h-4 w-4 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  ) : (
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                  )}
+                  Clear All Dues
+                </Button>
+              )}
             </CardFooter>
           </Card>
         ))}
