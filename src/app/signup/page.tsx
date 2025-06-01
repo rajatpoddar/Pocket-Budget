@@ -55,7 +55,7 @@ export default function SignupPage() {
         const now = new Date();
         const trialEndDate = addDays(now, 15);
 
-        const userProfileData: UserProfile = {
+        const userProfileData: UserProfile = { 
           uid: user.uid,
           email: user.email,
           displayName: data.displayName,
@@ -63,37 +63,53 @@ export default function SignupPage() {
           subscriptionStatus: 'trial',
           planType: 'none',
           trialEndDate: trialEndDate,
+          isAdmin: false,
         };
         
-        const firestoreData = {
-          ...userProfileData,
+        const firestoreData: any = { 
+          uid: userProfileData.uid,
+          email: userProfileData.email,
+          displayName: userProfileData.displayName,
           createdAt: Timestamp.fromDate(userProfileData.createdAt),
+          subscriptionStatus: userProfileData.subscriptionStatus,
+          planType: userProfileData.planType,
           trialEndDate: userProfileData.trialEndDate ? Timestamp.fromDate(userProfileData.trialEndDate) : null,
           subscriptionEndDate: null,
           subscribedAt: null,
           requestedPlanType: null,
+          isAdmin: false, 
         };
 
         await setDoc(doc(db, "users", user.uid), firestoreData);
 
-        // Create default "Freelance" income category with project tracking enabled
         const incomeCategoriesRef = collection(db, "users", user.uid, "incomeCategories");
         await addDoc(incomeCategoriesRef, {
           name: "Freelance",
           description: "Income from freelance projects and similar work.",
           userId: user.uid,
-          hasProjectTracking: true, // Enable project tracking by default
+          hasProjectTracking: true, 
+          isDailyFixedIncome: false, 
+          dailyFixedAmount: null, 
         });
       }
       
       toast({ title: 'Signup Successful', description: "Welcome to Poddar's Budget! Your 15-day trial has started." });
       router.push('/dashboard'); 
     } catch (error: any) {
-      toast({
-        title: 'Signup Failed',
-        description: error.message || 'An unexpected error occurred. Please try again.',
-        variant: 'destructive',
-      });
+      console.error("Signup error:", error);
+      if (error.code === 'auth/email-already-in-use') {
+        toast({
+          title: 'Signup Failed',
+          description: 'This email address is already in use. Please try logging in or use a different email.',
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Signup Failed',
+          description: error.message || 'An unexpected error occurred. Please try again.',
+          variant: 'destructive',
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -167,4 +183,3 @@ export default function SignupPage() {
     </div>
   );
 }
-

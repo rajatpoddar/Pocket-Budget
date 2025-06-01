@@ -3,7 +3,7 @@
 
 import type { User } from "firebase/auth";
 import { onAuthStateChanged } from "firebase/auth";
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode, useCallback } from "react";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, Timestamp } from "firebase/firestore";
 import type { UserProfile } from "@/types";
@@ -14,7 +14,8 @@ interface AuthContextType {
   user: User | null;
   userProfile: UserProfile | null; 
   loading: boolean;
-  hasActiveSubscription: boolean; // New helper state
+  hasActiveSubscription: boolean; 
+  refreshUserProfile: () => Promise<void>; // Function to manually refresh profile
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -25,53 +26,66 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
-      if (currentUser) {
-        const userDocRef = doc(db, "users", currentUser.uid);
-        const userDocSnap = await getDoc(userDocRef);
-        if (userDocSnap.exists()) {
-          const profileDataFirebase = userDocSnap.data();
-          const profile: UserProfile = {
-            uid: currentUser.uid,
-            email: currentUser.email,
-            displayName: currentUser.displayName,
-            createdAt: profileDataFirebase.createdAt instanceof Timestamp ? profileDataFirebase.createdAt.toDate() : new Date(profileDataFirebase.createdAt),
-            subscriptionStatus: profileDataFirebase.subscriptionStatus,
-            planType: profileDataFirebase.planType,
-            requestedPlanType: profileDataFirebase.requestedPlanType,
-            trialEndDate: profileDataFirebase.trialEndDate instanceof Timestamp ? profileDataFirebase.trialEndDate.toDate() : (profileDataFirebase.trialEndDate ? new Date(profileDataFirebase.trialEndDate) : undefined),
-            subscriptionEndDate: profileDataFirebase.subscriptionEndDate instanceof Timestamp ? profileDataFirebase.subscriptionEndDate.toDate() : (profileDataFirebase.subscriptionEndDate ? new Date(profileDataFirebase.subscriptionEndDate) : undefined),
-            subscribedAt: profileDataFirebase.subscribedAt instanceof Timestamp ? profileDataFirebase.subscribedAt.toDate() : (profileDataFirebase.subscribedAt ? new Date(profileDataFirebase.subscribedAt) : undefined),
-            isAdmin: profileDataFirebase.isAdmin || false,
-          };
-          setUserProfile(profile);
+  const fetchAndSetUserProfile = useCallback(async (currentUser: User | null) => {
+    if (currentUser) {
+      const userDocRef = doc(db, "users", currentUser.uid);
+      const userDocSnap = await getDoc(userDocRef);
+      if (userDocSnap.exists()) {
+        const profileDataFirebase = userDocSnap.data();
+        const profile: UserProfile = {
+          uid: currentUser.uid,
+          email: currentUser.email,
+          displayName: currentUser.displayName,
+          createdAt: profileDataFirebase.createdAt instanceof Timestamp ? profileDataFirebase.createdAt.toDate() : new Date(profileDataFirebase.createdAt),
+          subscriptionStatus: profileDataFirebase.subscriptionStatus,
+          planType: profileDataFirebase.planType,
+          requestedPlanType: profileDataFirebase.requestedPlanType,
+          trialEndDate: profileDataFirebase.trialEndDate instanceof Timestamp ? profileDataFirebase.trialEndDate.toDate() : (profileDataFirebase.trialEndDate ? new Date(profileDataFirebase.trialEndDate) : undefined),
+          subscriptionEndDate: profileDataFirebase.subscriptionEndDate instanceof Timestamp ? profileDataFirebase.subscriptionEndDate.toDate() : (profileDataFirebase.subscriptionEndDate ? new Date(profileDataFirebase.subscriptionEndDate) : undefined),
+          subscribedAt: profileDataFirebase.subscribedAt instanceof Timestamp ? profileDataFirebase.subscribedAt.toDate() : (profileDataFirebase.subscribedAt ? new Date(profileDataFirebase.subscribedAt) : undefined),
+          isAdmin: profileDataFirebase.isAdmin || false,
+        };
+        setUserProfile(profile);
 
-          // Calculate hasActiveSubscription
-          let isActive = false;
-          if (profile.subscriptionStatus === 'active' && profile.subscriptionEndDate && !isPast(profile.subscriptionEndDate)) {
-            isActive = true;
-          } else if (profile.subscriptionStatus === 'trial' && profile.trialEndDate && !isPast(profile.trialEndDate)) {
-            isActive = true;
-          }
-          setHasActiveSubscription(isActive);
-
-        } else {
-          console.warn(`User profile document not found in Firestore for the currently logged-in user (UID: ${currentUser.uid}). This profile is usually created during signup.`);
-          setUserProfile(null);
-          setHasActiveSubscription(false);
+        let isActive = false;
+        if (profile.subscriptionStatus === 'active' && profile.subscriptionEndDate && !isPast(profile.subscriptionEndDate)) {
+          isActive = true;
+        } else if (profile.subscriptionStatus === 'trial' && profile.trialEndDate && !isPast(profile.trialEndDate)) {
+          isActive = true;
         }
+        setHasActiveSubscription(isActive);
+
       } else {
+        console.warn(`User profile document not found in Firestore for UID: ${currentUser.uid}. A new one might be created on next relevant action or if signup logic handles it.`);
         setUserProfile(null);
         setHasActiveSubscription(false);
       }
+    } else {
+      setUserProfile(null);
+      setHasActiveSubscription(false);
+    }
+  }, []);
+
+
+  useEffect(() => {
+    setLoading(true);
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+      await fetchAndSetUserProfile(currentUser);
       setLoading(false);
     });
     return () => unsubscribe();
-  }, []);
+  }, [fetchAndSetUserProfile]);
+  
+  const refreshUserProfile = useCallback(async () => {
+    if (user) {
+      // Removed setLoading(true/false) to avoid global loading state flash during simple refresh
+      await fetchAndSetUserProfile(user);
+    }
+  }, [user, fetchAndSetUserProfile]);
 
-  if (loading) {
+
+  if (loading && !userProfile && !user) { // Show skeleton only on initial full load if no user and no profile yet
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="space-y-4 w-1/2">
@@ -84,7 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, userProfile, loading, hasActiveSubscription }}>
+    <AuthContext.Provider value={{ user, userProfile, loading, hasActiveSubscription, refreshUserProfile }}>
       {children}
     </AuthContext.Provider>
   );
