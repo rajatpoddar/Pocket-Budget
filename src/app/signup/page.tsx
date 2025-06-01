@@ -54,26 +54,15 @@ export default function SignupPage() {
 
         const now = new Date();
         const trialEndDate = addDays(now, 15);
-
-        const userProfileData: UserProfile = { 
+        
+        const firestoreData: any = { 
           uid: user.uid,
           email: user.email,
           displayName: data.displayName,
-          createdAt: now,
+          createdAt: Timestamp.fromDate(now),
           subscriptionStatus: 'trial',
           planType: 'none',
-          trialEndDate: trialEndDate,
-          isAdmin: false,
-        };
-        
-        const firestoreData: any = { 
-          uid: userProfileData.uid,
-          email: userProfileData.email,
-          displayName: userProfileData.displayName,
-          createdAt: Timestamp.fromDate(userProfileData.createdAt),
-          subscriptionStatus: userProfileData.subscriptionStatus,
-          planType: userProfileData.planType,
-          trialEndDate: userProfileData.trialEndDate ? Timestamp.fromDate(userProfileData.trialEndDate) : null,
+          trialEndDate: Timestamp.fromDate(trialEndDate),
           subscriptionEndDate: null,
           subscribedAt: null,
           requestedPlanType: null,
@@ -93,7 +82,7 @@ export default function SignupPage() {
         });
       }
       
-      toast({ title: 'Signup Successful', description: "Welcome to Poddar's Budget! Your 15-day trial has started." });
+      toast({ title: 'Signup Successful', description: "Welcome to Pocket Budget! Your 15-day trial has started." });
       router.push('/dashboard'); 
     } catch (error: any) {
       console.error("Signup error:", error);
@@ -121,7 +110,7 @@ export default function SignupPage() {
         <CardHeader className="text-center">
           <UserPlus className="mx-auto h-12 w-12 text-primary mb-4" />
           <CardTitle className="text-3xl font-headline">Create Your Account</CardTitle>
-          <CardDescription>Join Poddar's Budget to manage your finances.</CardDescription>
+          <CardDescription>Join Pocket Budget - Daily Income & Expenses Tracker.</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>

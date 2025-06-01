@@ -92,7 +92,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   };
   
   const getAvatarFallback = (name?: string | null) => {
-    if (!name) return "MB"; 
+    if (!name) return "PB"; 
     const parts = name.split(" ");
     if (parts.length > 1) {
       return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
@@ -107,7 +107,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-2 group-data-[collapsible=icon]:hidden">
             <Wallet className="w-6 h-6 text-sidebar-foreground flex-shrink-0" />
             <h1 className="text-xl font-semibold text-sidebar-foreground font-headline truncate">
-              {user?.displayName ? `${user.displayName}'s Budget` : "My Budget"}
+              {user?.displayName ? `${user.displayName}'s Budget` : "Pocket Budget"}
             </h1>
           </div>
         </SidebarHeader>

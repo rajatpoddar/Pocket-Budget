@@ -52,7 +52,7 @@ export default function AdminAreaLayout({
     <div className="flex flex-col min-h-screen bg-muted/20">
       <header className="bg-primary text-primary-foreground p-4 shadow-md sticky top-0 z-50">
         <div className="container mx-auto flex justify-between items-center">
-          <h1 className="text-xl sm:text-2xl font-semibold font-headline">Poddar's Budget - Admin Panel</h1>
+          <h1 className="text-xl sm:text-2xl font-semibold font-headline">Pocket Budget - Admin Panel</h1>
           <button 
             onClick={() => router.push('/dashboard')} 
             className="text-sm hover:underline"
@@ -66,7 +66,7 @@ export default function AdminAreaLayout({
         {children}
       </main>
       <footer className="text-center p-4 text-xs text-muted-foreground border-t">
-        Poddar's Budget Admin Area
+        Pocket Budget Admin Area
       </footer>
     </div>
   );

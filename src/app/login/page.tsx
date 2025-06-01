@@ -61,7 +61,7 @@ export default function LoginPage() {
         <CardHeader className="text-center">
            <LogIn className="mx-auto h-12 w-12 text-primary mb-4" />
           <CardTitle className="text-3xl font-headline">Welcome Back!</CardTitle>
-          <CardDescription>Log in to access Poddar's Budget.</CardDescription>
+          <CardDescription>Log in to access Pocket Budget.</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
