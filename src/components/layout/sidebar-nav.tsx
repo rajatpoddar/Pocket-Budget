@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, ListChecks, Target, Landmark, CreditCard, Shapes, Settings, Users, ShieldCheck, Crown, BellRing } from "lucide-react";
+import { LayoutDashboard, ListChecks, Target, Landmark, CreditCard, Shapes, Settings, Users, ShieldCheck, Crown, BellRing, UserCircle } from "lucide-react"; // Added UserCircle
 import {
   SidebarMenu,
   SidebarMenuItem,
@@ -12,7 +12,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth"; 
 import { SUPER_ADMIN_UID } from '@/config'; 
-import { useSidebar } from "@/components/ui/sidebar"; // Import useSidebar
+import { useSidebar } from "@/components/ui/sidebar"; 
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -22,6 +22,7 @@ const navItems = [
   { href: "/expense-categories", label: "Expense Categories", icon: Shapes },
   { href: "/clients", label: "Clients", icon: Users },
   { href: "/budget-goals", label: "Budget Goals", icon: Target },
+  { href: "/profile", label: "Profile", icon: UserCircle }, // Added Profile
   { href: "/subscription", label: "Subscription", icon: Crown },
   // { href: "/settings", label: "Settings", icon: Settings }, 
 ];
@@ -34,27 +35,29 @@ const adminNavItems = [
 export function SidebarNav() {
   const pathname = usePathname();
   const { user } = useAuth(); 
-  const { isMobile, setOpenMobile } = useSidebar(); // Consume sidebar context
+  const { isMobile, setOpenMobile } = useSidebar(); 
 
   const isSuperAdmin = user?.uid === SUPER_ADMIN_UID;
 
   const allNavItems = isSuperAdmin ? [...navItems, ...adminNavItems] : navItems;
+  // Sort admin items to appear after regular items if desired, or maintain current order
+  // For example, to ensure admin items are last:
+  const finalNavItems = isSuperAdmin 
+    ? [...navItems.filter(item => !adminNavItems.some(adminItem => adminItem.href === item.href)), ...adminNavItems]
+    : navItems;
+
 
   const handleLinkClick = () => {
     if (isMobile) {
-      setOpenMobile(false); // Close sidebar on mobile after click
+      setOpenMobile(false); 
     }
   };
 
   return (
     <SidebarMenu>
-      {allNavItems.map((item) => (
+      {finalNavItems.map((item) => (
         <SidebarMenuItem key={item.href}>
           <Link href={item.href} passHref legacyBehavior>
-            {/* 
-              The onClick handler is added to the SidebarMenuButton.
-              Since it has `asChild`, the click event will effectively be on the `<a>` tag.
-            */}
             <SidebarMenuButton
               asChild
               variant="default"
@@ -66,7 +69,7 @@ export function SidebarNav() {
               )}
               isActive={pathname === item.href || (pathname.startsWith(item.href) && item.href !== "/dashboard" && item.href !== "/")}
               tooltip={{ children: item.label, side: "right", align: "center" }}
-              onClick={handleLinkClick} // Add onClick handler here
+              onClick={handleLinkClick} 
             >
               <a>
                 <item.icon className="h-5 w-5" />
@@ -81,4 +84,3 @@ export function SidebarNav() {
     </SidebarMenu>
   );
 }
-

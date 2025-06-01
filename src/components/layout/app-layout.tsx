@@ -2,6 +2,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link"; // Added Link
 import { useRouter } from "next/navigation";
 import {
   SidebarProvider,
@@ -14,7 +15,7 @@ import {
 } from "@/components/ui/sidebar";
 import { SidebarNav } from "./sidebar-nav";
 import { Button } from "@/components/ui/button";
-import { LogOut, Moon, Sun, Wallet } from "lucide-react";
+import { LogOut, Moon, Sun, Wallet, UserCircle } from "lucide-react"; // Added UserCircle (though not directly used here, good to have if needed)
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/use-auth";
 import { auth } from "@/lib/firebase";
@@ -115,7 +116,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <SidebarNav />
         </SidebarContent>
         <SidebarFooter className="p-4 border-t border-sidebar-border">
-           <div className="flex items-center gap-2 group-data-[collapsible=icon]:hidden">
+          <Link href="/profile" className="flex items-center gap-2 group-data-[collapsible=icon]:hidden flex-grow min-w-0 hover:bg-sidebar-accent/50 p-1 rounded-md transition-colors">
             <Avatar className="h-8 w-8">
               <AvatarImage src={user?.photoURL || `https://placehold.co/40x40.png?text=${getAvatarFallback(user?.displayName)}`} alt="User Avatar" data-ai-hint="user avatar" />
               <AvatarFallback>{getAvatarFallback(user?.displayName)}</AvatarFallback>
@@ -124,8 +125,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <p className="font-medium text-sidebar-foreground truncate">{user?.displayName || "User"}</p>
               <p className="text-xs text-sidebar-foreground/70 truncate">{user?.email}</p>
             </div>
-          </div>
-          <Button variant="ghost" size="icon" className="ml-auto group-data-[collapsible=icon]:mx-auto" onClick={handleLogout} title="Log out">
+          </Link>
+          {/* Icon-only view for profile link when sidebar is collapsed */}
+          <Link href="/profile" className="hidden group-data-[collapsible=icon]:flex items-center justify-center w-full p-1 hover:bg-sidebar-accent/50 rounded-md transition-colors" title="Profile">
+             <Avatar className="h-8 w-8">
+              <AvatarImage src={user?.photoURL || `https://placehold.co/40x40.png?text=${getAvatarFallback(user?.displayName)}`} alt="User Avatar" data-ai-hint="user avatar" />
+              <AvatarFallback>{getAvatarFallback(user?.displayName)}</AvatarFallback>
+            </Avatar>
+          </Link>
+          <Button variant="ghost" size="icon" className="ml-auto group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:mt-2" onClick={handleLogout} title="Log out">
             <LogOut className="h-5 w-5" />
             <span className="sr-only">Log out</span>
           </Button>
@@ -141,6 +149,29 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <main className="flex-1 p-4 sm:p-6 overflow-auto min-h-0">
             {children}
         </main>
+        <footer className="p-6 text-center text-xs text-muted-foreground border-t">
+          <p className="mb-2">
+            © 2025 Pocket Budget - Made with ❤️ by Rajat Poddar.
+          </p>
+          <div className="flex justify-center items-center gap-x-4">
+            <a 
+              href="https://github.com/rajatpoddar/poddarsbudget" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="hover:text-primary hover:underline"
+            >
+              GitHub
+            </a>
+            <a 
+              href="https://pocketbdgt.fun/" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="hover:text-primary hover:underline"
+            >
+              pocketbdgt.fun
+            </a>
+          </div>
+        </footer>
       </SidebarInset>
     </SidebarProvider>
   );

@@ -399,7 +399,7 @@ export default function ClientsPage() {
                   ) : (
                     <CheckCircle className="h-4 w-4 mr-2" />
                   )}
-                  Clear All Dues
+                  Clear
                 </Button>
               )}
             </CardFooter>

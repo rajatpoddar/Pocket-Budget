@@ -36,6 +36,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           uid: currentUser.uid,
           email: currentUser.email,
           displayName: currentUser.displayName,
+          photoURL: profileDataFirebase.photoURL || currentUser.photoURL, // Prioritize Firestore, fallback to Auth
+          phoneNumber: profileDataFirebase.phoneNumber,
           createdAt: profileDataFirebase.createdAt instanceof Timestamp ? profileDataFirebase.createdAt.toDate() : new Date(profileDataFirebase.createdAt),
           subscriptionStatus: profileDataFirebase.subscriptionStatus,
           planType: profileDataFirebase.planType,
@@ -57,7 +59,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       } else {
         console.warn(`User profile document not found in Firestore for UID: ${currentUser.uid}. A new one might be created on next relevant action or if signup logic handles it.`);
-        setUserProfile(null);
+        setUserProfile({ // Create a minimal profile from auth if Firestore doc doesn't exist
+          uid: currentUser.uid,
+          email: currentUser.email,
+          displayName: currentUser.displayName,
+          photoURL: currentUser.photoURL,
+          createdAt: currentUser.metadata.creationTime ? new Date(currentUser.metadata.creationTime) : new Date(),
+        });
         setHasActiveSubscription(false);
       }
     } else {
@@ -70,22 +78,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     setLoading(true);
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
-      await fetchAndSetUserProfile(currentUser);
+      setUser(currentUser); // Set Firebase Auth user object
+      // It's important that fetchAndSetUserProfile also uses the currentUser from onAuthStateChanged
+      // or the user state which is just set.
+      await fetchAndSetUserProfile(currentUser); 
       setLoading(false);
     });
     return () => unsubscribe();
   }, [fetchAndSetUserProfile]);
   
   const refreshUserProfile = useCallback(async () => {
-    if (user) {
-      // Removed setLoading(true/false) to avoid global loading state flash during simple refresh
-      await fetchAndSetUserProfile(user);
+    if (auth.currentUser) { // Use auth.currentUser for refresh to get the latest from Firebase Auth
+      setUser(auth.currentUser); // Update user state with latest from Auth
+      await fetchAndSetUserProfile(auth.currentUser);
     }
-  }, [user, fetchAndSetUserProfile]);
+  }, [fetchAndSetUserProfile]);
 
 
-  if (loading && !userProfile && !user) { // Show skeleton only on initial full load if no user and no profile yet
+  if (loading && !userProfile && !user) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="space-y-4 w-1/2">

@@ -28,6 +28,7 @@ Pocket Budget is a comprehensive web application designed to help users manage t
     *   Track progress towards achieving these goals.
 *   **User Authentication:**
     *   Secure signup and login functionality using Firebase Authentication (Email/Password).
+    *   Password recovery option.
 *   **Subscription Model:**
     *   15-day free trial for new users.
     *   Monthly and Yearly subscription plans.
@@ -39,6 +40,7 @@ Pocket Budget is a comprehensive web application designed to help users manage t
     *   **Remove User Profile:** Admins can remove user data from Firestore (profile data, not Firebase Auth entry).
 *   **Responsive Design:** Optimized for use on desktop and mobile devices.
 *   **Theme Toggle:** Light and Dark mode support.
+*   **PWA Ready:** Includes a manifest file for Progressive Web App capabilities.
 
 ## Tech Stack
 
@@ -76,7 +78,7 @@ A brief overview of some key directories:
 *   `src/lib/`: Utility functions and Firebase initialization (`firebase.ts`).
 *   `src/types/`: TypeScript type definitions.
 *   `src/ai/`: Genkit related files (flows, configuration).
-*   `public/`: Static assets.
+*   `public/`: Static assets (including `manifest.json` and `favicon.ico`).
 
 ## Prerequisites
 
@@ -89,8 +91,8 @@ Follow these steps to get the project running locally:
 
 1.  **Clone the repository:**
     ```bash
-    git clone <your-repository-url>
-    cd pocket-budget 
+    git clone https://github.com/rajatpoddar/poddarsbudget.git
+    cd poddarsbudget 
     ```
 
 2.  **Install dependencies:**
@@ -134,11 +136,12 @@ Follow these steps to get the project running locally:
         ```
     *   **Set Firestore Security Rules:**
         *   In your Firebase project, go to Firestore Database -> Rules.
-        *   Paste the security rules provided in the project documentation or a secure ruleset that allows users to manage their own data and admins to manage all data. (Refer to the rules provided during development for a starting point).
+        *   Paste the security rules provided in the project documentation or use the latest `firestore.rules` file from this repository.
         *   **Important:** Ensure your rules are secure and follow the principle of least privilege.
 
 4.  **Initial Data (Optional but Recommended):**
     *   Upon first signup, the application automatically creates a default "Freelance" income category for the new user.
+    *   Add your `favicon.ico` and PWA icons (`public/icons/icon-192x192.png`, `public/icons/icon-512x512.png`).
 
 ## Running Locally
 
@@ -162,6 +165,10 @@ npm run genkit:watch
 ```
 This typically starts on `http://localhost:4000`.
 
+## Live Project
+
+You can view the live project at: [https://pocketbdgt.fun/](https://pocketbdgt.fun/)
+
 ## Deployment
 
 This project includes an `apphosting.yaml` file, indicating it's set up for deployment with [Firebase App Hosting](https://firebase.google.com/docs/app-hosting). Refer to the Firebase App Hosting documentation for deployment steps.
@@ -177,4 +184,6 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ---
 
-*This README was generated with assistance from an AI coding partner in Firebase Studio.*
+© 2025 Rajat Poddar. All Rights Reserved.
+
+[Pocket Budget Live](https://pocketbdgt.fun/) | [GitHub Repository](https://github.com/rajatpoddar/poddarsbudget)

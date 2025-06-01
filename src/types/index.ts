@@ -11,6 +11,8 @@ export interface UserProfile {
   uid: string;
   email: string | null;
   displayName: string | null;
+  photoURL?: string | null; // Added for profile picture URL
+  phoneNumber?: string | null; // Added for phone number
   createdAt: Date; 
   // Subscription fields
   subscriptionStatus?: 'trial' | 'active' | 'expired' | 'cancelled' | 'none' | 'pending_confirmation';
@@ -89,4 +91,3 @@ export interface ClientFinancialSummary extends Client {
   totalPaid: number;
   totalDues: number;
 }
-
