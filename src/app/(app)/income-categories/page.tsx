@@ -76,17 +76,16 @@ export default function IncomeCategoriesPage() {
       
       const dataToSave: any = {
         name: newCategoryData.name,
-        description: newCategoryData.description || "",
-        hasProjectTracking: newCategoryData.hasProjectTracking ?? false,
-        isDailyFixedIncome: newCategoryData.isDailyFixedIncome ?? false,
+        description: newCategoryData.description || "", // Ensure description is always a string
+        hasProjectTracking: newCategoryData.hasProjectTracking ?? false, // Default to false if undefined
+        isDailyFixedIncome: newCategoryData.isDailyFixedIncome ?? false, // Default to false if undefined
         userId: user.uid,
       };
 
       if (dataToSave.isDailyFixedIncome && typeof newCategoryData.dailyFixedAmount === 'number' && newCategoryData.dailyFixedAmount > 0) {
         dataToSave.dailyFixedAmount = newCategoryData.dailyFixedAmount;
-      } else {
-        dataToSave.dailyFixedAmount = deleteField(); // Ensure it's removed if not applicable
       }
+      // No need for deleteField() here; if the condition above isn't met, dailyFixedAmount is simply not added to dataToSave.
       
       return addDoc(collection(db, "users", user.uid, "incomeCategories"), dataToSave);
     },
@@ -101,7 +100,7 @@ export default function IncomeCategoriesPage() {
   });
 
   const updateCategoryMutation = useMutation({
-    mutationFn: async (updatedCategory: IncomeCategory & { dailyFixedAmount?: number }) => { // Ensure dailyFixedAmount is part of the type for updatedCategory
+    mutationFn: async (updatedCategory: IncomeCategory & { dailyFixedAmount?: number }) => { 
       if (!user?.uid || !updatedCategory.id) throw new Error("User or category ID missing");
       if (!canEditCategory(updatedCategory)) throw new Error("Action restricted by subscription or trial limits.");
       
@@ -109,7 +108,7 @@ export default function IncomeCategoriesPage() {
       
       const dataToUpdate: any = {
         name: updatedCategory.name,
-        description: updatedCategory.description || "",
+        description: updatedCategory.description || "", 
         hasProjectTracking: updatedCategory.hasProjectTracking ?? false,
         isDailyFixedIncome: updatedCategory.isDailyFixedIncome ?? false,
       };
@@ -117,7 +116,7 @@ export default function IncomeCategoriesPage() {
       if (dataToUpdate.isDailyFixedIncome && typeof updatedCategory.dailyFixedAmount === 'number' && updatedCategory.dailyFixedAmount > 0) {
         dataToUpdate.dailyFixedAmount = updatedCategory.dailyFixedAmount;
       } else {
-        dataToUpdate.dailyFixedAmount = deleteField();
+        dataToUpdate.dailyFixedAmount = deleteField(); // Use deleteField for updates to remove the field
       }
       
       return updateDoc(categoryRef, dataToUpdate);
@@ -158,13 +157,12 @@ export default function IncomeCategoriesPage() {
 
   const handleFormSubmit = (values: Omit<IncomeCategory, 'id' | 'userId' | 'dailyFixedAmount'> & { dailyFixedAmount?: number }) => {
     if (editingCategory) {
-      // Ensure editingCategory (which is IncomeCategory | null) is spread correctly with new values
       const categoryDataForUpdate = { 
-        ...editingCategory, // Spread the existing category data
-        ...values,         // Override with form values
-        id: editingCategory!.id, // Ensure ID is present
-        userId: editingCategory!.userId // Ensure userId is present
-      } as IncomeCategory & { dailyFixedAmount?: number }; // Type assertion
+        ...editingCategory, 
+        ...values,         
+        id: editingCategory!.id, 
+        userId: editingCategory!.userId 
+      } as IncomeCategory & { dailyFixedAmount?: number }; 
       updateCategoryMutation.mutate(categoryDataForUpdate);
     } else {
       addCategoryMutation.mutate(values);
@@ -318,7 +316,7 @@ export default function IncomeCategoriesPage() {
                 typeBadge = <Badge variant="secondary">Project Tracking</Badge>;
               } else if (category.isDailyFixedIncome) {
                 IconComponent = Repeat;
-                typeBadge = <Badge variant="default" className="bg-blue-500 hover:bg-blue-600">Daily Fixed: ₹{category.dailyFixedAmount?.toLocaleString()}</Badge>;
+                typeBadge = <Badge variant="default" className="bg-blue-500 hover:bg-blue-600 whitespace-normal text-center">Daily Fixed: ₹{category.dailyFixedAmount?.toLocaleString()}</Badge>;
               }
               
               const isDefaultFreelanceCategory = category.name === "Freelance";
