@@ -1,17 +1,12 @@
 
 "use client"; // Required for QueryClientProvider
 
-import type { Metadata } from 'next';
+// import type { Metadata } from 'next'; // Metadata export is for Server Components
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from "@/hooks/use-auth";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react'; // Ensure React is imported for QueryClientProvider
-
-// export const metadata: Metadata = { // Metadata should be in server component or moved
-//   title: "Pocket Budget",
-//   description: 'Daily Income & Expenses Tracker',
-// };
 
 const queryClient = new QueryClient();
 
@@ -20,12 +15,38 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const siteUrl = "https://pocketbdgt.fun";
+  const siteName = "Pocket Budget";
+  const title = "Pocket Budget: Smart Income & Expense Tracker | Manage Your Finances";
+  const description = "Take control of your finances with Pocket Budget! Easily track daily income and expenses, manage freelance projects, set budget goals, and gain financial clarity. Start your free trial today.";
+  const keywords = "personal finance tracker, expense manager, income tracker, budgeting app, freelance finance, daily expense tracker, budget goals, financial planning, pocket budget";
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/* Metadata can be managed per-page or in a root server component layout if needed */}
-        <title>Pocket Budget - Daily Income & Expenses Tracker</title>
-        <meta name='description' content='Daily Income & Expenses Tracker' />
+        <meta charSet="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>{title}</title>
+        <meta name="description" content={description} />
+        <meta name="keywords" content={keywords} />
+        <link rel="canonical" href={siteUrl} />
+        {/* Open Graph / Facebook */}
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content={siteUrl} />
+        <meta property="og:title" content={title} />
+        <meta property="og:description" content={description} />
+        <meta property="og:image" content="https://placehold.co/1200x630.png?text=Pocket+Budget+Finance+Tracker" data-ai-hint="app interface finance" />
+        <meta property="og:image:alt" content={siteName} />
+        <meta property="og:site_name" content={siteName} />
+        {/* Twitter */}
+        <meta property="twitter:card" content="summary_large_image" />
+        <meta property="twitter:url" content={siteUrl} />
+        <meta property="twitter:title" content={title} />
+        <meta property="twitter:description" content={description} />
+        <meta property="twitter:image" content="https://placehold.co/1200x630.png?text=Pocket+Budget+App" data-ai-hint="app logo finance" />
+        <meta name="twitter:image:alt" content={siteName} />
+        {/* <meta name="twitter:site" content="@YourTwitterHandle" /> */}
+        {/* <meta name="twitter:creator" content="@YourTwitterHandle" /> */}
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
