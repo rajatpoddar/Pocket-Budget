@@ -20,8 +20,14 @@ import {
   DialogDescription,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { AddExpenseCategoryForm } from "@/components/expense/add-expense-category-form";
-import { PlusCircle, Edit3, Trash2, Tag, Lock, AlertTriangle } from "lucide-react";
+import { PlusCircle, Edit3, Trash2, Tag, Lock, AlertTriangle, MoreHorizontal } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from '@/hooks/use-auth';
 import { db } from '@/lib/firebase';
@@ -219,7 +225,7 @@ export default function ExpenseCategoriesPage() {
                 <AlertTriangle className="h-5 w-5 mr-3" />
                 <div>
                     <p className="font-bold">Trial Limit Reached</p>
-                    <p className="text-sm">You've reached the trial limit of {TRIAL_ITEM_LIMIT} expense categories. <Link href="/subscription" className="underline font-medium hover:text-blue-800">Upgrade your plan</Link> to add more.</p>
+                    <p className="text-sm">You've reached the trial limit of ${TRIAL_ITEM_LIMIT} expense categories. <Link href="/subscription" className="underline font-medium hover:text-blue-800">Upgrade your plan</Link> to add more.</p>
                 </div>
             </div>
         </div>
@@ -240,9 +246,9 @@ export default function ExpenseCategoriesPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[100px]">Icon</TableHead>
+              <TableHead className="w-[60px] table-cell sm:w-auto">Icon</TableHead>
               <TableHead>Name</TableHead>
-              <TableHead>Description</TableHead>
+              <TableHead className="hidden sm:table-cell">Description</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -256,22 +262,48 @@ export default function ExpenseCategoriesPage() {
             )}
             {categories.map((category) => {
               const IconComponent = Tag; 
+              const editActionDisabled = !canAddOrEdit;
+              const deleteActionDisabled = !canAddOrEdit;
+              const actionTitle = !canAddOrEdit ? "Subscription/trial limits apply" : undefined;
+
               return (
                 <TableRow key={category.id}>
-                  <TableCell>
+                  <TableCell className="table-cell sm:w-auto">
                     <IconComponent className="h-6 w-6 text-muted-foreground" />
                   </TableCell>
                   <TableCell className="font-medium break-words max-w-[100px] sm:max-w-xs">{category.name}</TableCell>
-                  <TableCell className="text-muted-foreground break-words max-w-[150px] sm:max-w-md">{category.description || "N/A"}</TableCell>
+                  <TableCell className="text-muted-foreground break-words max-w-[150px] sm:max-w-md truncate hidden sm:table-cell">{category.description || "N/A"}</TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" onClick={() => handleEdit(category)} className="mr-2" disabled={!canAddOrEdit} title={!canAddOrEdit ? "Subscription/trial limits apply" : "Edit"}>
-                      <Edit3 className="h-4 w-4" />
-                      <span className="sr-only">Edit</span>
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => handleDelete(category.id)} disabled={!canAddOrEdit} title={!canAddOrEdit ? "Subscription/trial limits apply" : "Delete"}>
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                      <span className="sr-only">Delete</span>
-                    </Button>
+                     {/* Desktop Actions */}
+                    <div className="hidden md:flex md:items-center md:justify-end md:gap-1">
+                      <Button variant="ghost" size="icon" onClick={() => handleEdit(category)} disabled={editActionDisabled} title={actionTitle || "Edit"}>
+                        <Edit3 className="h-4 w-4" />
+                        <span className="sr-only">Edit</span>
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleDelete(category.id)} disabled={deleteActionDisabled} title={actionTitle || "Delete"}>
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                        <span className="sr-only">Delete</span>
+                      </Button>
+                    </div>
+                    {/* Mobile Actions */}
+                    <div className="md:hidden">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" disabled={editActionDisabled && deleteActionDisabled} title="Actions">
+                            <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">Actions</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleEdit(category)} disabled={editActionDisabled}>
+                            <Edit3 className="mr-2 h-4 w-4" /> Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDelete(category.id)} disabled={deleteActionDisabled} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                            <Trash2 className="mr-2 h-4 w-4" /> Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </TableCell>
                 </TableRow>
               );
@@ -282,3 +314,4 @@ export default function ExpenseCategoriesPage() {
     </div>
   );
 }
+

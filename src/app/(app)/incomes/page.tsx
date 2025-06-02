@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { AddIncomeForm } from "@/components/income/add-income-form";
 import { QuickAddDailyIncomeDialog } from "@/components/income/quick-add-daily-income-dialog";
-import { PlusCircle, Edit3, Trash2, Wallet, Briefcase, Info, Users, CheckCircle, Lock, CalendarPlus } from "lucide-react";
+import { PlusCircle, Edit3, Trash2, Wallet, Briefcase, Info, Users, CheckCircle, Lock, CalendarPlus, ChevronDown, ChevronUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { useAuth } from '@/hooks/use-auth';
@@ -33,6 +33,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
 
 const fetchIncomeCategories = async (userId: string): Promise<IncomeCategory[]> => {
   if (!userId) return [];
@@ -75,6 +76,7 @@ export default function IncomesPage() {
   const [isAddIncomeDialogOpen, setIsAddIncomeDialogOpen] = useState(false);
   const [isQuickAddDialogOpen, setIsQuickAddDialogOpen] = useState(false);
   const [editingIncome, setEditingIncome] = useState<Income | null>(null);
+  const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
   const addIncomeDialogDescriptionId = React.useId();
   const quickAddDialogDescriptionId = React.useId();
 
@@ -172,11 +174,17 @@ export default function IncomesPage() {
         dataToSave.freelanceDetails = {
           clientName: incomeData.freelanceDetails.clientName,
           projectCost: incomeData.freelanceDetails.projectCost,
-          ...(incomeData.freelanceDetails.clientNumber !== undefined && { clientNumber: incomeData.freelanceDetails.clientNumber }),
-          ...(incomeData.freelanceDetails.clientAddress !== undefined && { clientAddress: incomeData.freelanceDetails.clientAddress }),
-          ...(incomeData.freelanceDetails.numberOfWorkers !== undefined && { numberOfWorkers: incomeData.freelanceDetails.numberOfWorkers }),
-          duesClearedAt: incomeData.freelanceDetails.duesClearedAt ? Timestamp.fromDate(new Date(incomeData.freelanceDetails.duesClearedAt)) : null,
         };
+        if (incomeData.freelanceDetails.clientNumber && incomeData.freelanceDetails.clientNumber.trim() !== "") {
+            dataToSave.freelanceDetails.clientNumber = incomeData.freelanceDetails.clientNumber;
+        }
+        if (incomeData.freelanceDetails.clientAddress && incomeData.freelanceDetails.clientAddress.trim() !== "") {
+            dataToSave.freelanceDetails.clientAddress = incomeData.freelanceDetails.clientAddress;
+        }
+        if (incomeData.freelanceDetails.numberOfWorkers !== undefined && Number.isInteger(incomeData.freelanceDetails.numberOfWorkers) && incomeData.freelanceDetails.numberOfWorkers >= 0) {
+             dataToSave.freelanceDetails.numberOfWorkers = incomeData.freelanceDetails.numberOfWorkers;
+        }
+        dataToSave.freelanceDetails.duesClearedAt = incomeData.freelanceDetails.duesClearedAt ? Timestamp.fromDate(new Date(incomeData.freelanceDetails.duesClearedAt)) : null;
         dataToSave.clientId = incomeData.clientId || null;
       } else {
         dataToSave.freelanceDetails = deleteField(); 
@@ -217,11 +225,17 @@ export default function IncomesPage() {
         finalData.freelanceDetails = {
           clientName: dataToUpdate.freelanceDetails.clientName,
           projectCost: dataToUpdate.freelanceDetails.projectCost,
-          ...(dataToUpdate.freelanceDetails.clientNumber !== undefined && { clientNumber: dataToUpdate.freelanceDetails.clientNumber }),
-          ...(dataToUpdate.freelanceDetails.clientAddress !== undefined && { clientAddress: dataToUpdate.freelanceDetails.clientAddress }),
-          ...(dataToUpdate.freelanceDetails.numberOfWorkers !== undefined && { numberOfWorkers: dataToUpdate.freelanceDetails.numberOfWorkers }),
-          duesClearedAt: dataToUpdate.freelanceDetails.duesClearedAt ? Timestamp.fromDate(new Date(dataToUpdate.freelanceDetails.duesClearedAt)) : null,
         };
+        if (dataToUpdate.freelanceDetails.clientNumber && dataToUpdate.freelanceDetails.clientNumber.trim() !== "") {
+             finalData.freelanceDetails.clientNumber = dataToUpdate.freelanceDetails.clientNumber;
+        }
+        if (dataToUpdate.freelanceDetails.clientAddress && dataToUpdate.freelanceDetails.clientAddress.trim() !== "") {
+             finalData.freelanceDetails.clientAddress = dataToUpdate.freelanceDetails.clientAddress;
+        }
+        if (dataToUpdate.freelanceDetails.numberOfWorkers !== undefined && Number.isInteger(dataToUpdate.freelanceDetails.numberOfWorkers) && dataToUpdate.freelanceDetails.numberOfWorkers >= 0) {
+            finalData.freelanceDetails.numberOfWorkers = dataToUpdate.freelanceDetails.numberOfWorkers;
+        }
+        finalData.freelanceDetails.duesClearedAt = dataToUpdate.freelanceDetails.duesClearedAt ? Timestamp.fromDate(new Date(dataToUpdate.freelanceDetails.duesClearedAt)) : null;
         finalData.clientId = dataToUpdate.clientId || null;
       } else {
         finalData.freelanceDetails = deleteField();
@@ -263,13 +277,13 @@ export default function IncomesPage() {
   });
 
   const handleFormSubmit = async (
-    values: Omit<Income, 'id' | 'userId' | 'freelanceDetails' | 'clientId'> & { // This is the type from AddIncomeFormValues
+    values: Omit<Income, 'id' | 'userId' | 'freelanceDetails' | 'clientId'> & { 
         existingClientId?: string,
         clientName?: string,
         clientNumber?: string,
         clientAddress?: string,
         projectCost?: number,
-        numberOfWorkers?: number // This will be number | undefined from Zod
+        numberOfWorkers?: number 
     },
     isNewClient: boolean,
     categoryHasProjectTracking?: boolean
@@ -314,15 +328,16 @@ export default function IncomesPage() {
                 finalFreelanceDetails.clientAddress = values.clientAddress;
             }
             if (typeof values.numberOfWorkers === 'number' && Number.isInteger(values.numberOfWorkers) && values.numberOfWorkers >= 0) {
-                finalFreelanceDetails.numberOfWorkers = values.numberOfWorkers;
+                 finalFreelanceDetails.numberOfWorkers = values.numberOfWorkers;
             }
             if (editingIncome?.freelanceDetails?.duesClearedAt) {
                  finalFreelanceDetails.duesClearedAt = new Date(editingIncome.freelanceDetails.duesClearedAt);
             }
         } else {
-            // Errors for projectCost and clientName (if new) are handled in AddIncomeForm's manual validation
-            // This toast might be redundant if form validation is effective.
-            // toast({ title: "Missing Project Info", description: "Project cost and client name are required for project-based income.", variant: "destructive"});
+             // This case implies project tracking is on, but required fields like projectCost or clientName might be missing.
+             // The Zod schema in AddIncomeForm should ideally catch this before onSubmit is called.
+             // If it reaches here, it might mean an issue with how form values are passed or state is managed.
+            toast({ title: "Missing Project Info", description: "Project cost and client name are required for project-based income.", variant: "destructive" });
             return;
         }
         clientIdFromForm = currentClientId; 
@@ -432,11 +447,14 @@ export default function IncomesPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Description</TableHead>
-              <TableHead>Amount</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Project Details</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead className="text-right">Amount</TableHead>
+              <TableHead className="hidden sm:table-cell">Date</TableHead>
+              <TableHead className="hidden md:table-cell">Category</TableHead>
+              <TableHead className="hidden md:table-cell">Project Details</TableHead>
+              <TableHead className="text-right hidden md:table-cell">Actions</TableHead>
+              <TableHead className="text-right md:hidden"> {/* Expand icon column for mobile */}
+                <span className="sr-only">Expand</span>
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -445,61 +463,174 @@ export default function IncomesPage() {
               const isProjectBased = categoryDetails?.hasProjectTracking && income.freelanceDetails;
               const dueAmount = isProjectBased ? income.freelanceDetails!.projectCost - income.amount : 0;
               const duesCleared = isProjectBased && !!income.freelanceDetails!.duesClearedAt;
+              const isExpanded = expandedRowId === income.id;
 
               return (
-                <TableRow key={income.id}>
-                  <TableCell className="font-medium">
-                    <div className="break-words max-w-[100px] sm:max-w-xs">
-                      {income.description}
-                    </div>
-                  </TableCell>
-                  <TableCell>₹{income.amount.toLocaleString()}</TableCell>
-                  <TableCell>{format(new Date(income.date), "PPP")}</TableCell>
-                  <TableCell className="break-words max-w-[100px] sm:max-w-[150px]">{categoryDetails?.name || "N/A"}</TableCell>
-                  <TableCell>
-                    {isProjectBased ? (
-                      <div className="text-xs space-y-0.5 max-w-[150px] sm:max-w-xs">
-                        <div className="flex items-center">
-                          <Briefcase className="w-3 h-3 mr-1.5 text-muted-foreground flex-shrink-0"/>
-                          <span className="truncate" title={income.freelanceDetails!.clientName}>{income.freelanceDetails!.clientName}</span>
+                <React.Fragment key={income.id}>
+                  <TableRow 
+                    className={cn("md:cursor-default cursor-pointer", isExpanded && "bg-muted/30")}
+                    onClick={() => setExpandedRowId(isExpanded ? null : income.id)}
+                  >
+                    <TableCell className="font-medium">
+                      <div className="break-words max-w-[120px] sm:max-w-xs">
+                        {income.description}
+                      </div>
+                      <div className="text-xs text-muted-foreground sm:hidden"> {/* Date for mobile below description */}
+                        {format(new Date(income.date), "PP")}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">₹{income.amount.toLocaleString()}</TableCell>
+                    <TableCell className="hidden sm:table-cell">{format(new Date(income.date), "PPP")}</TableCell>
+                    <TableCell className="hidden md:table-cell break-words max-w-[100px] sm:max-w-[150px]">{categoryDetails?.name || "N/A"}</TableCell>
+                    <TableCell className="hidden md:table-cell">
+                      {isProjectBased ? (
+                        <div className="text-xs space-y-0.5 max-w-[150px] sm:max-w-xs">
+                          <div className="flex items-center">
+                            <Briefcase className="w-3 h-3 mr-1.5 text-muted-foreground flex-shrink-0"/>
+                            <span className="truncate" title={income.freelanceDetails!.clientName}>{income.freelanceDetails!.clientName}</span>
+                          </div>
+                            <div>Cost: ₹{income.freelanceDetails!.projectCost.toLocaleString()}</div>
+                            {income.freelanceDetails!.numberOfWorkers !== undefined && (
+                              <div className="flex items-center">
+                                <Users className="w-3 h-3 mr-1.5 text-muted-foreground flex-shrink-0"/>
+                                <span>Workers: {income.freelanceDetails!.numberOfWorkers}</span>
+                              </div>
+                            )}
+                            {duesCleared ? (
+                              <Badge variant="default" className="mt-1 bg-green-600 hover:bg-green-700">
+                                Dues Cleared: {format(new Date(income.freelanceDetails!.duesClearedAt!), "PPp")}
+                              </Badge>
+                            ) : dueAmount > 0 ? (
+                            <Badge variant="destructive" className="mt-1">Due: ₹{dueAmount.toLocaleString()}</Badge>
+                            ) : (
+                            <Badge variant="secondary" className="mt-1">Paid in Full</Badge>
+                            )}
                         </div>
-                          <div>Cost: ₹{income.freelanceDetails!.projectCost.toLocaleString()}</div>
-                          {income.freelanceDetails!.numberOfWorkers !== undefined && (
-                            <div className="flex items-center">
-                              <Users className="w-3 h-3 mr-1.5 text-muted-foreground flex-shrink-0"/>
-                              <span>Workers: {income.freelanceDetails!.numberOfWorkers}</span>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">N/A</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right hidden md:table-cell">
+                      <div className="flex flex-row items-center justify-end gap-1">
+                        {isProjectBased && dueAmount > 0 && !duesCleared && (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={(e) => { e.stopPropagation(); handleClearDues(income); }}
+                            className="text-xs"
+                            title="Clear Dues" 
+                            disabled={!hasActiveSubscription}
+                          >
+                            <CheckCircle className="h-3.5 w-3.5 md:mr-1" /> <span className="hidden md:inline">Clear</span>
+                          </Button>
+                        )}
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={(e) => { e.stopPropagation(); handleEdit(income); }}
+                          title="Edit" 
+                          disabled={!hasActiveSubscription}
+                        >
+                          <Edit3 className="h-4 w-4" />
+                          <span className="sr-only">Edit</span>
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={(e) => { e.stopPropagation(); handleDelete(income.id); }}
+                          title="Delete" 
+                          disabled={!hasActiveSubscription}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                          <span className="sr-only">Delete</span>
+                        </Button>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right md:hidden">
+                      <Button variant="ghost" size="icon" aria-label={isExpanded ? "Collapse row" : "Expand row"}>
+                        {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                  {isExpanded && (
+                    <TableRow className="md:hidden bg-muted/50 hover:bg-muted/60 border-b border-border">
+                      <TableCell colSpan={3} className="p-3"> {/* Adjusted colSpan for mobile */}
+                        <div className="space-y-3">
+                          <div>
+                            <strong className="block text-xs uppercase text-muted-foreground">Category</strong>
+                            <span>{categoryDetails?.name || "N/A"}</span>
+                          </div>
+
+                          {isProjectBased && (
+                            <div>
+                              <strong className="block text-xs uppercase text-muted-foreground">Project Details</strong>
+                              <div className="text-xs space-y-0.5 mt-1">
+                                <div className="flex items-center">
+                                  <Briefcase className="w-3 h-3 mr-1.5 text-muted-foreground flex-shrink-0"/>
+                                  <span className="truncate" title={income.freelanceDetails!.clientName}>{income.freelanceDetails!.clientName}</span>
+                                </div>
+                                <div>Cost: ₹{income.freelanceDetails!.projectCost.toLocaleString()}</div>
+                                {income.freelanceDetails!.numberOfWorkers !== undefined && (
+                                  <div className="flex items-center">
+                                    <Users className="w-3 h-3 mr-1.5 text-muted-foreground flex-shrink-0"/>
+                                    <span>Workers: {income.freelanceDetails!.numberOfWorkers}</span>
+                                  </div>
+                                )}
+                                {duesCleared ? (
+                                  <Badge variant="default" className="mt-1 bg-green-600 hover:bg-green-700">
+                                    Dues Cleared: {format(new Date(income.freelanceDetails!.duesClearedAt!), "PPp")}
+                                  </Badge>
+                                ) : dueAmount > 0 ? (
+                                <Badge variant="destructive" className="mt-1">Due: ₹{dueAmount.toLocaleString()}</Badge>
+                                ) : (
+                                <Badge variant="secondary" className="mt-1">Paid in Full</Badge>
+                                )}
+                              </div>
                             </div>
                           )}
-                          {duesCleared ? (
-                            <Badge variant="default" className="mt-1 bg-green-600 hover:bg-green-700">
-                              Dues Cleared: {format(new Date(income.freelanceDetails!.duesClearedAt!), "PPp")}
-                            </Badge>
-                          ) : dueAmount > 0 ? (
-                          <Badge variant="destructive" className="mt-1">Due: ₹{dueAmount.toLocaleString()}</Badge>
-                          ) : (
-                          <Badge variant="secondary" className="mt-1">Paid in Full</Badge>
-                          )}
-                      </div>
-                    ) : (
-                      <span className="text-muted-foreground text-xs">N/A</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right whitespace-nowrap">
-                    {isProjectBased && dueAmount > 0 && !duesCleared && (
-                      <Button variant="outline" size="sm" onClick={() => handleClearDues(income)} className="mr-2 text-xs" title="Clear Dues" disabled={!hasActiveSubscription}>
-                        <CheckCircle className="h-3.5 w-3.5 mr-1" /> Clear
-                      </Button>
-                    )}
-                    <Button variant="ghost" size="icon" onClick={() => handleEdit(income)} className="mr-2" title="Edit" disabled={!hasActiveSubscription}>
-                      <Edit3 className="h-4 w-4" />
-                      <span className="sr-only">Edit</span>
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => handleDelete(income.id)} title="Delete" disabled={!hasActiveSubscription}>
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                      <span className="sr-only">Delete</span>
-                    </Button>
-                  </TableCell>
-                </TableRow>
+                          
+                          <div>
+                            <strong className="block text-xs uppercase text-muted-foreground">Actions</strong>
+                            <div className="flex flex-col items-start gap-2 mt-1">
+                              {isProjectBased && dueAmount > 0 && !duesCleared && (
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  onClick={(e) => { e.stopPropagation(); handleClearDues(income); }} 
+                                  className="w-full justify-start text-xs"
+                                  title="Clear Dues" 
+                                  disabled={!hasActiveSubscription}
+                                >
+                                  <CheckCircle className="h-3.5 w-3.5 mr-2" /> Clear Dues
+                                </Button>
+                              )}
+                               <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={(e) => { e.stopPropagation(); handleEdit(income); }}
+                                title="Edit Income" 
+                                disabled={!hasActiveSubscription}
+                                className="w-full justify-start"
+                              >
+                                <Edit3 className="h-4 w-4 mr-2" /> Edit Income
+                              </Button>
+                              <Button 
+                                variant="destructive" 
+                                size="sm" 
+                                onClick={(e) => { e.stopPropagation(); handleDelete(income.id); }}
+                                title="Delete Income" 
+                                disabled={!hasActiveSubscription}
+                                className="w-full justify-start"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" /> Delete Income
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </React.Fragment>
               );
             })}
           </TableBody>
@@ -647,3 +778,4 @@ export default function IncomesPage() {
     </div>
   );
 }
+    

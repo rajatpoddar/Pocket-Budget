@@ -11,13 +11,13 @@ export interface UserProfile {
   uid: string;
   email: string | null;
   displayName: string | null;
-  photoURL?: string | null; // Added for profile picture URL
-  phoneNumber?: string | null; // Added for phone number
-  createdAt: Date; 
+  photoURL?: string | null; 
+  phoneNumber?: string | null; 
+  createdAt?: Date; // Changed to optional
   // Subscription fields
   subscriptionStatus?: 'trial' | 'active' | 'expired' | 'cancelled' | 'none' | 'pending_confirmation';
   planType?: 'monthly' | 'yearly' | 'none';
-  requestedPlanType?: 'monthly' | 'yearly'; // Plan user selected, pending admin approval
+  requestedPlanType?: 'monthly' | 'yearly'; 
   trialEndDate?: Date;
   subscriptionEndDate?: Date;
   subscribedAt?: Date;
@@ -30,8 +30,8 @@ export interface IncomeCategory {
   description?: string;
   userId?: string;
   hasProjectTracking?: boolean;
-  isDailyFixedIncome?: boolean; // New field for daily fixed income
-  dailyFixedAmount?: number;    // New field for the fixed daily amount
+  isDailyFixedIncome?: boolean; 
+  dailyFixedAmount?: number;    
 }
 
 export interface BudgetGoal {

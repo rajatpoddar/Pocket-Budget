@@ -21,7 +21,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { AddExpenseForm } from "@/components/expense/add-expense-form";
-import { PlusCircle, Edit3, Trash2, Wallet, Lock } from "lucide-react";
+import { PlusCircle, Edit3, Trash2, Wallet, Lock, ChevronDown, ChevronUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { useAuth } from '@/hooks/use-auth';
@@ -30,6 +30,7 @@ import { collection, addDoc, query, getDocs, doc, updateDoc, deleteDoc, Timestam
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
+import { cn } from '@/lib/utils';
 
 const fetchExpenseCategories = async (userId: string): Promise<ExpenseCategory[]> => {
   if (!userId) return [];
@@ -59,6 +60,7 @@ export default function ExpensesPage() {
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
   const dialogDescriptionId = React.useId();
 
   const { data: expenseCategories = [], isLoading: isLoadingCategories } = useQuery<ExpenseCategory[], Error>({
@@ -180,7 +182,7 @@ export default function ExpensesPage() {
 
   const isLoading = isLoadingCategories || isLoadingExpenses;
 
-  if (isLoading) {
+  if (isLoading && expenses.length === 0) {
     return (
       <div className="flex flex-col gap-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
@@ -261,7 +263,7 @@ export default function ExpensesPage() {
         </div>
       )}
 
-      {expenses.length === 0 && !isLoading && (
+      {(isLoading && expenses.length === 0) ? null : expenses.length === 0 && !isLoading && (
         <div className="text-center py-10 text-muted-foreground">
           <Wallet className="mx-auto h-12 w-12 mb-4" />
           <h2 className="text-xl font-semibold mb-2">No Expense Entries Yet</h2>
@@ -275,31 +277,91 @@ export default function ExpensesPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Description</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead className="text-right">Amount</TableHead>
+                <TableHead className="hidden sm:table-cell">Date</TableHead>
+                <TableHead className="hidden md:table-cell">Category</TableHead>
+                <TableHead className="text-right hidden md:table-cell">Actions</TableHead>
+                <TableHead className="text-right md:hidden">
+                  <span className="sr-only">Expand</span>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {expenses.map((expense) => (
-                <TableRow key={expense.id}>
-                  <TableCell className="font-medium break-words max-w-[100px] sm:max-w-xs">{expense.description}</TableCell>
-                  <TableCell>₹{expense.amount.toFixed(2)}</TableCell>
-                  <TableCell>{format(new Date(expense.date), "PPP")}</TableCell>
-                  <TableCell className="break-words max-w-[100px] sm:max-w-[150px]">{categoryMap[expense.categoryId] || "N/A"}</TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" onClick={() => handleEdit(expense)} className="mr-2" disabled={!hasActiveSubscription}>
-                      <Edit3 className="h-4 w-4" />
-                      <span className="sr-only">Edit</span>
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => handleDelete(expense.id)} disabled={!hasActiveSubscription}>
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                      <span className="sr-only">Delete</span>
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {expenses.map((expense) => {
+                const isExpanded = expandedRowId === expense.id;
+                return (
+                  <React.Fragment key={expense.id}>
+                    <TableRow 
+                      className={cn("md:cursor-default cursor-pointer", isExpanded && "bg-muted/30")}
+                      onClick={() => setExpandedRowId(isExpanded ? null : expense.id)}
+                    >
+                      <TableCell className="font-medium">
+                        <div className="break-words max-w-[120px] sm:max-w-xs">
+                          {expense.description}
+                        </div>
+                        <div className="text-xs text-muted-foreground sm:hidden"> {/* Date for mobile below description */}
+                          {format(new Date(expense.date), "PP")}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">₹{expense.amount.toFixed(2)}</TableCell>
+                      <TableCell className="hidden sm:table-cell">{format(new Date(expense.date), "PPP")}</TableCell>
+                      <TableCell className="hidden md:table-cell break-words max-w-[100px] sm:max-w-[150px]">{categoryMap[expense.categoryId] || "N/A"}</TableCell>
+                      <TableCell className="text-right hidden md:table-cell">
+                        <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleEdit(expense); }} className="mr-2" disabled={!hasActiveSubscription} title="Edit Expense">
+                          <Edit3 className="h-4 w-4" />
+                          <span className="sr-only">Edit</span>
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleDelete(expense.id); }} disabled={!hasActiveSubscription} title="Delete Expense">
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                          <span className="sr-only">Delete</span>
+                        </Button>
+                      </TableCell>
+                      <TableCell className="text-right md:hidden">
+                        <Button variant="ghost" size="icon" aria-label={isExpanded ? "Collapse row" : "Expand row"}>
+                          {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                    {isExpanded && (
+                      <TableRow className="md:hidden bg-muted/50 hover:bg-muted/60 border-b border-border">
+                        <TableCell colSpan={3} className="p-3">
+                          <div className="space-y-3">
+                            <div>
+                              <strong className="block text-xs uppercase text-muted-foreground">Category</strong>
+                              <span>{categoryMap[expense.categoryId] || "N/A"}</span>
+                            </div>
+                            <div>
+                              <strong className="block text-xs uppercase text-muted-foreground">Actions</strong>
+                              <div className="flex flex-col items-start gap-2 mt-1">
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  onClick={(e) => { e.stopPropagation(); handleEdit(expense); }} 
+                                  className="w-full justify-start"
+                                  disabled={!hasActiveSubscription}
+                                  title="Edit Expense"
+                                >
+                                  <Edit3 className="h-4 w-4 mr-2" /> Edit Expense
+                                </Button>
+                                <Button 
+                                  variant="destructive" 
+                                  size="sm" 
+                                  onClick={(e) => { e.stopPropagation(); handleDelete(expense.id); }} 
+                                  className="w-full justify-start"
+                                  disabled={!hasActiveSubscription}
+                                  title="Delete Expense"
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" /> Delete Expense
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </React.Fragment>
+                );
+              })}
             </TableBody>
           </Table>
         </div>
@@ -307,3 +369,4 @@ export default function ExpensesPage() {
     </div>
   );
 }
+

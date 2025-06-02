@@ -22,9 +22,19 @@ import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
 import { useToast } from "@/hooks/use-toast";
 
+const LIGHT_THEME_STATUS_BAR_COLOR = "#7EAFB3"; // hsl(185 26% 60%)
+const DARK_THEME_STATUS_BAR_COLOR = "#0A0A0A";   // hsl(240 10% 3.9%)
+
 const ThemeToggle = () => {
   const [isDarkMode, setIsDarkMode] = React.useState(false);
   const [hasMounted, setHasMounted] = React.useState(false);
+
+  const updateThemeColorMeta = (isDark: boolean) => {
+    const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+    if (metaThemeColor) {
+      metaThemeColor.setAttribute('content', isDark ? DARK_THEME_STATUS_BAR_COLOR : LIGHT_THEME_STATUS_BAR_COLOR);
+    }
+  };
 
   React.useEffect(() => {
     setHasMounted(true);
@@ -39,9 +49,11 @@ const ThemeToggle = () => {
       if (shouldBeDark) {
         document.documentElement.classList.add('dark');
         setIsDarkMode(true);
+        updateThemeColorMeta(true); 
       } else {
         document.documentElement.classList.remove('dark');
         setIsDarkMode(false);
+        updateThemeColorMeta(false);
       }
     }
   }, [hasMounted]);
@@ -49,14 +61,17 @@ const ThemeToggle = () => {
   const toggleTheme = () => {
     if (!hasMounted) return;
 
-    if (document.documentElement.classList.contains('dark')) {
+    const isCurrentlyDark = document.documentElement.classList.contains('dark');
+    if (isCurrentlyDark) { // Switching to light
       document.documentElement.classList.remove('dark');
       localStorage.setItem('theme', 'light');
       setIsDarkMode(false);
-    } else {
+      updateThemeColorMeta(false);
+    } else { // Switching to dark
       document.documentElement.classList.add('dark');
       localStorage.setItem('theme', 'dark');
       setIsDarkMode(true);
+      updateThemeColorMeta(true);
     }
   };
 
@@ -95,7 +110,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const getAvatarFallback = (name?: string | null) => {
     if (!name) return "PB"; 
     const parts = name.split(" ");
-    if (parts.length > 1) {
+    if (parts.length > 1 && parts[0] && parts[1]) {
       return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
     }
     return name.substring(0, 2).toUpperCase();

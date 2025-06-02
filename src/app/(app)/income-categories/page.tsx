@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState } from 'react';
@@ -20,8 +19,14 @@ import {
   DialogDescription,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { AddCategoryForm } from "@/components/income/add-category-form";
-import { PlusCircle, Edit3, Trash2, DollarSign, Lock, AlertTriangle, Briefcase, Repeat } from "lucide-react";
+import { PlusCircle, Edit3, Trash2, DollarSign, Lock, AlertTriangle, Briefcase, Repeat, MoreHorizontal } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from '@/hooks/use-auth';
 import { db } from '@/lib/firebase';
@@ -293,10 +298,10 @@ export default function IncomeCategoriesPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[60px]">Icon</TableHead>
+              <TableHead className="w-[60px] table-cell sm:w-auto">Icon</TableHead>
               <TableHead>Name</TableHead>
-              <TableHead>Description</TableHead>
-              <TableHead>Type</TableHead>
+              <TableHead className="hidden sm:table-cell">Description</TableHead>
+              <TableHead className="hidden md:table-cell">Type</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -310,13 +315,13 @@ export default function IncomeCategoriesPage() {
             )}
             {categories.map((category) => {
               let IconComponent = DollarSign;
-              let typeBadge = <Badge variant="outline">General</Badge>;
+              let typeBadge = <Badge variant="outline" className="whitespace-nowrap">General</Badge>;
               if (category.hasProjectTracking) {
                 IconComponent = Briefcase;
-                typeBadge = <Badge variant="secondary">Project Tracking</Badge>;
+                typeBadge = <Badge variant="secondary" className="whitespace-nowrap">Project</Badge>;
               } else if (category.isDailyFixedIncome) {
                 IconComponent = Repeat;
-                typeBadge = <Badge variant="default" className="bg-blue-500 hover:bg-blue-600 whitespace-normal text-center">Daily Fixed: ₹{category.dailyFixedAmount?.toLocaleString()}</Badge>;
+                typeBadge = <Badge variant="default" className="bg-blue-500 hover:bg-blue-600 whitespace-normal text-center h-auto py-1">Daily: ₹{category.dailyFixedAmount?.toLocaleString()}</Badge>;
               }
               
               const isDefaultFreelanceCategory = category.name === "Freelance";
@@ -333,34 +338,62 @@ export default function IncomeCategoriesPage() {
 
               return (
                 <TableRow key={category.id}>
-                  <TableCell>
+                  <TableCell className="table-cell sm:w-auto">
                     <IconComponent className="h-5 w-5 text-muted-foreground" />
                   </TableCell>
                   <TableCell className="font-medium break-words max-w-[100px] sm:max-w-xs">{category.name}</TableCell>
-                  <TableCell className="text-muted-foreground text-xs break-words max-w-[150px] sm:max-w-md truncate">{category.description || "N/A"}</TableCell>
-                  <TableCell>{typeBadge}</TableCell>
-                  <TableCell className="text-right whitespace-nowrap">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleEdit(category)}
-                      className="mr-2"
-                      title={editTitle}
-                      disabled={editActionDisabled}
-                    >
-                      <Edit3 className="h-4 w-4" />
-                      <span className="sr-only">Edit</span>
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDelete(category.id)}
-                      title={deleteTitle}
-                      disabled={deleteActionDisabled}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                      <span className="sr-only">Delete</span>
-                    </Button>
+                  <TableCell className="text-muted-foreground text-xs break-words max-w-[150px] sm:max-w-md truncate hidden sm:table-cell">{category.description || "N/A"}</TableCell>
+                  <TableCell className="hidden md:table-cell">{typeBadge}</TableCell>
+                  <TableCell className="text-right">
+                    {/* Desktop Actions */}
+                    <div className="hidden md:flex md:items-center md:justify-end md:gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleEdit(category)}
+                        title={editTitle}
+                        disabled={editActionDisabled}
+                      >
+                        <Edit3 className="h-4 w-4" />
+                        <span className="sr-only">Edit</span>
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDelete(category.id)}
+                        title={deleteTitle}
+                        disabled={deleteActionDisabled}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                        <span className="sr-only">Delete</span>
+                      </Button>
+                    </div>
+                    {/* Mobile Actions */}
+                    <div className="md:hidden">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" disabled={editActionDisabled && deleteActionDisabled} title="Actions">
+                            <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">Actions</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleEdit(category)} disabled={editActionDisabled}>
+                            <Edit3 className="mr-2 h-4 w-4" /> Edit
+                          </DropdownMenuItem>
+                          {!isDefaultFreelanceCategory && (
+                             <DropdownMenuItem onClick={() => handleDelete(category.id)} disabled={deleteActionDisabled} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                               <Trash2 className="mr-2 h-4 w-4" /> Delete
+                             </DropdownMenuItem>
+                          )}
+                           {isDefaultFreelanceCategory && (
+                             <DropdownMenuItem disabled={true} title={deleteTitle}>
+                               <Trash2 className="mr-2 h-4 w-4 opacity-50" /> <span className="opacity-50">Delete</span>
+                             </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </TableCell>
                 </TableRow>
               );

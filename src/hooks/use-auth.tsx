@@ -15,7 +15,7 @@ interface AuthContextType {
   userProfile: UserProfile | null; 
   loading: boolean;
   hasActiveSubscription: boolean; 
-  refreshUserProfile: () => Promise<void>; // Function to manually refresh profile
+  refreshUserProfile: () => Promise<void>; 
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -32,13 +32,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const userDocSnap = await getDoc(userDocRef);
       if (userDocSnap.exists()) {
         const profileDataFirebase = userDocSnap.data();
+
+        let finalCreatedAt: Date | undefined = undefined;
+        const rawCreatedAt = profileDataFirebase.createdAt;
+        if (rawCreatedAt) {
+          if (rawCreatedAt instanceof Timestamp) { // Firestore Timestamp (most common case from Firestore)
+            finalCreatedAt = rawCreatedAt.toDate();
+          } else if (rawCreatedAt instanceof Date && !isNaN(rawCreatedAt.getTime())) { // Already a valid JS Date
+            finalCreatedAt = rawCreatedAt;
+          } else if (typeof rawCreatedAt === 'string' || typeof rawCreatedAt === 'number') { // String or number timestamp
+            const d = new Date(rawCreatedAt);
+            if (!isNaN(d.getTime())) finalCreatedAt = d;
+            else console.warn(`User ${currentUser.uid} has invalid createdAt string/number in Firestore:`, rawCreatedAt);
+          } else {
+            console.warn(`User ${currentUser.uid} has an unexpected createdAt type in Firestore:`, typeof rawCreatedAt, rawCreatedAt);
+          }
+        }
+        if (!finalCreatedAt) { // Fallback if createdAt is missing or unparseable
+             console.warn(`User ${currentUser.uid} is missing a valid createdAt field in Firestore. Using auth creation time.`);
+             finalCreatedAt = currentUser.metadata.creationTime ? new Date(currentUser.metadata.creationTime) : new Date();
+        }
+
+
         const profile: UserProfile = {
           uid: currentUser.uid,
           email: currentUser.email,
           displayName: currentUser.displayName,
-          photoURL: profileDataFirebase.photoURL || currentUser.photoURL, // Prioritize Firestore, fallback to Auth
+          photoURL: profileDataFirebase.photoURL || currentUser.photoURL,
           phoneNumber: profileDataFirebase.phoneNumber,
-          createdAt: profileDataFirebase.createdAt instanceof Timestamp ? profileDataFirebase.createdAt.toDate() : new Date(profileDataFirebase.createdAt),
+          createdAt: finalCreatedAt,
           subscriptionStatus: profileDataFirebase.subscriptionStatus,
           planType: profileDataFirebase.planType,
           requestedPlanType: profileDataFirebase.requestedPlanType,
@@ -58,8 +80,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setHasActiveSubscription(isActive);
 
       } else {
-        console.warn(`User profile document not found in Firestore for UID: ${currentUser.uid}. A new one might be created on next relevant action or if signup logic handles it.`);
-        setUserProfile({ // Create a minimal profile from auth if Firestore doc doesn't exist
+        console.warn(`User profile document not found in Firestore for UID: ${currentUser.uid}. Using minimal profile from Auth.`);
+        setUserProfile({ 
           uid: currentUser.uid,
           email: currentUser.email,
           displayName: currentUser.displayName,
@@ -78,9 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     setLoading(true);
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser); // Set Firebase Auth user object
-      // It's important that fetchAndSetUserProfile also uses the currentUser from onAuthStateChanged
-      // or the user state which is just set.
+      setUser(currentUser); 
       await fetchAndSetUserProfile(currentUser); 
       setLoading(false);
     });
@@ -88,8 +108,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [fetchAndSetUserProfile]);
   
   const refreshUserProfile = useCallback(async () => {
-    if (auth.currentUser) { // Use auth.currentUser for refresh to get the latest from Firebase Auth
-      setUser(auth.currentUser); // Update user state with latest from Auth
+    if (auth.currentUser) { 
+      setUser(auth.currentUser); 
       await fetchAndSetUserProfile(auth.currentUser);
     }
   }, [fetchAndSetUserProfile]);
