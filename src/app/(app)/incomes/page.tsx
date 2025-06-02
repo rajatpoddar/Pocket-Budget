@@ -168,6 +168,8 @@ export default function IncomesPage() {
         date: Timestamp.fromDate(new Date(incomeData.date)),
         categoryId: incomeData.categoryId,
         userId: user.uid,
+        freelanceDetails: null, // Initialize with null
+        clientId: null,        // Initialize with null
       };
 
       if (incomeData.freelanceDetails) {
@@ -185,11 +187,9 @@ export default function IncomesPage() {
              dataToSave.freelanceDetails.numberOfWorkers = incomeData.freelanceDetails.numberOfWorkers;
         }
         dataToSave.freelanceDetails.duesClearedAt = incomeData.freelanceDetails.duesClearedAt ? Timestamp.fromDate(new Date(incomeData.freelanceDetails.duesClearedAt)) : null;
-        dataToSave.clientId = incomeData.clientId || null;
-      } else {
-        dataToSave.freelanceDetails = deleteField(); 
-        dataToSave.clientId = deleteField();
+        dataToSave.clientId = incomeData.clientId || null; // Ensure clientId is set, can be null if not provided
       }
+      
       return addDoc(collection(db, "users", user.uid, "incomes"), dataToSave);
     },
     onSuccess: () => {
@@ -334,9 +334,6 @@ export default function IncomesPage() {
                  finalFreelanceDetails.duesClearedAt = new Date(editingIncome.freelanceDetails.duesClearedAt);
             }
         } else {
-             // This case implies project tracking is on, but required fields like projectCost or clientName might be missing.
-             // The Zod schema in AddIncomeForm should ideally catch this before onSubmit is called.
-             // If it reaches here, it might mean an issue with how form values are passed or state is managed.
             toast({ title: "Missing Project Info", description: "Project cost and client name are required for project-based income.", variant: "destructive" });
             return;
         }
@@ -511,39 +508,41 @@ export default function IncomesPage() {
                       )}
                     </TableCell>
                     <TableCell className="text-right hidden md:table-cell">
-                      <div className="flex flex-row items-center justify-end gap-1">
+                      <div className="flex flex-col sm:flex-row items-center justify-end gap-1">
                         {isProjectBased && dueAmount > 0 && !duesCleared && (
                           <Button 
                             variant="outline" 
                             size="sm" 
                             onClick={(e) => { e.stopPropagation(); handleClearDues(income); }}
-                            className="text-xs"
+                            className="text-xs w-full sm:w-auto"
                             title="Clear Dues" 
                             disabled={!hasActiveSubscription}
                           >
                             <CheckCircle className="h-3.5 w-3.5 md:mr-1" /> <span className="hidden md:inline">Clear</span>
                           </Button>
                         )}
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          onClick={(e) => { e.stopPropagation(); handleEdit(income); }}
-                          title="Edit" 
-                          disabled={!hasActiveSubscription}
-                        >
-                          <Edit3 className="h-4 w-4" />
-                          <span className="sr-only">Edit</span>
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          onClick={(e) => { e.stopPropagation(); handleDelete(income.id); }}
-                          title="Delete" 
-                          disabled={!hasActiveSubscription}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                          <span className="sr-only">Delete</span>
-                        </Button>
+                        <div className="flex sm:ml-1">
+                            <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={(e) => { e.stopPropagation(); handleEdit(income); }}
+                            title="Edit" 
+                            disabled={!hasActiveSubscription}
+                            >
+                            <Edit3 className="h-4 w-4" />
+                            <span className="sr-only">Edit</span>
+                            </Button>
+                            <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={(e) => { e.stopPropagation(); handleDelete(income.id); }}
+                            title="Delete" 
+                            disabled={!hasActiveSubscription}
+                            >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                            <span className="sr-only">Delete</span>
+                            </Button>
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell className="text-right md:hidden">
