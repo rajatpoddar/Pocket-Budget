@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState } from 'react';
@@ -81,16 +82,14 @@ export default function IncomeCategoriesPage() {
       
       const dataToSave: any = {
         name: newCategoryData.name,
-        description: newCategoryData.description || "", // Ensure description is always a string
-        hasProjectTracking: newCategoryData.hasProjectTracking ?? false, // Default to false if undefined
-        isDailyFixedIncome: newCategoryData.isDailyFixedIncome ?? false, // Default to false if undefined
+        description: newCategoryData.description || "", 
+        hasProjectTracking: newCategoryData.hasProjectTracking ?? false, 
+        isDailyFixedIncome: newCategoryData.isDailyFixedIncome ?? false, 
         userId: user.uid,
+        dailyFixedAmount: (newCategoryData.isDailyFixedIncome && typeof newCategoryData.dailyFixedAmount === 'number' && newCategoryData.dailyFixedAmount > 0)
+                           ? newCategoryData.dailyFixedAmount
+                           : null, // Ensure dailyFixedAmount is null if not applicable or invalid
       };
-
-      if (dataToSave.isDailyFixedIncome && typeof newCategoryData.dailyFixedAmount === 'number' && newCategoryData.dailyFixedAmount > 0) {
-        dataToSave.dailyFixedAmount = newCategoryData.dailyFixedAmount;
-      }
-      // No need for deleteField() here; if the condition above isn't met, dailyFixedAmount is simply not added to dataToSave.
       
       return addDoc(collection(db, "users", user.uid, "incomeCategories"), dataToSave);
     },
@@ -121,7 +120,7 @@ export default function IncomeCategoriesPage() {
       if (dataToUpdate.isDailyFixedIncome && typeof updatedCategory.dailyFixedAmount === 'number' && updatedCategory.dailyFixedAmount > 0) {
         dataToUpdate.dailyFixedAmount = updatedCategory.dailyFixedAmount;
       } else {
-        dataToUpdate.dailyFixedAmount = deleteField(); // Use deleteField for updates to remove the field
+        dataToUpdate.dailyFixedAmount = deleteField(); 
       }
       
       return updateDoc(categoryRef, dataToUpdate);
