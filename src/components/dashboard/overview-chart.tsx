@@ -1,7 +1,7 @@
 
 "use client";
 
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Tooltip as RechartsTooltip, Legend as RechartsLegend, ResponsiveContainer } from 'recharts';
+import { Line, LineChart, CartesianGrid, XAxis, YAxis, Tooltip as RechartsTooltip, Legend as RechartsLegend, ResponsiveContainer } from 'recharts';
 import type { ChartConfig } from '@/components/ui/chart';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
@@ -14,7 +14,7 @@ interface OverviewChartProps {
 export function OverviewChart({ data, chartConfig }: OverviewChartProps) {
   if (!data || data.length === 0) {
     return (
-      <Card className="shadow-lg col-span-1 md:col-span-2">
+      <Card className="shadow-lg lg:col-span-2">
         <CardHeader>
           <CardTitle>Financial Overview</CardTitle>
           <CardDescription>Income vs. Expenses - Last 6 Months</CardDescription>
@@ -27,7 +27,7 @@ export function OverviewChart({ data, chartConfig }: OverviewChartProps) {
   }
 
   return (
-    <Card className="shadow-lg col-span-1 md:col-span-2">
+    <Card className="shadow-lg lg:col-span-2">
       <CardHeader>
         <CardTitle>Financial Overview</CardTitle>
         <CardDescription>Income vs. Expenses - Last 6 Months</CardDescription>
@@ -35,28 +35,46 @@ export function OverviewChart({ data, chartConfig }: OverviewChartProps) {
       <CardContent className="pl-2">
         <ChartContainer config={chartConfig} className="h-[250px] sm:h-[300px] w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
+            <LineChart data={data} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
               <XAxis
                 dataKey="month"
                 tickLine={false}
                 tickMargin={10}
                 axisLine={false}
+                stroke="hsl(var(--muted-foreground))"
+                fontSize={12}
               />
               <YAxis tickLine={false} axisLine={false} tickMargin={10} 
-                tickFormatter={(value) => `₹${value.toLocaleString()}`}
+                stroke="hsl(var(--muted-foreground))"
+                fontSize={12}
+                tickFormatter={(value) => `₹${value > 1000 ? `${(value/1000).toFixed(0)}k` : value.toLocaleString()}`}
               />
               <RechartsTooltip
-                cursor={{ fill: "hsl(var(--muted))" }}
+                cursor={{ stroke: "hsl(var(--border))", strokeWidth: 1 }}
                 content={<ChartTooltipContent 
                             indicator="dot" 
                             formatter={(value, name) => [`₹${Number(value).toLocaleString()}`, name === 'income' ? 'Income' : 'Expenses']}
                          />}
               />
               <RechartsLegend content={<ChartLegendContent />} />
-              <Bar dataKey="income" fill="var(--color-income)" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="expenses" fill="var(--color-expenses)" radius={[4, 4, 0, 0]} />
-            </BarChart>
+              <Line 
+                type="monotone" 
+                dataKey="income" 
+                stroke="var(--color-income)" 
+                strokeWidth={2} 
+                dot={{ r: 4, fill: "var(--color-income)", strokeWidth:0 }} 
+                activeDot={{ r: 6, strokeWidth:0, style: {filter: `drop-shadow(0 0 3px hsl(var(--chart-1)))`} }} 
+              />
+              <Line 
+                type="monotone" 
+                dataKey="expenses" 
+                stroke="var(--color-expenses)" 
+                strokeWidth={2} 
+                dot={{ r: 4, fill: "var(--color-expenses)", strokeWidth:0 }} 
+                activeDot={{ r: 6, strokeWidth:0, style: {filter: `drop-shadow(0 0 3px hsl(var(--chart-2)))`} }} 
+              />
+            </LineChart>
           </ResponsiveContainer>
         </ChartContainer>
       </CardContent>

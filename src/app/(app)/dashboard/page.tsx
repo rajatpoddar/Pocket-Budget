@@ -22,6 +22,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { AddDailyIncomeDialog } from '@/components/income/add-daily-income-dialog';
 import { Button } from '@/components/ui/button';
 
+interface RecentActivityItem {
+  id: string;
+  description: string;
+  amount: string;
+  category: string;
+  date: Date;
+  avatar: string;
+  type: "income" | "expense";
+}
+
 // Fetch Incomes
 const fetchIncomes = async (userId: string): Promise<Income[]> => {
   if (!userId) return [];
@@ -57,7 +67,7 @@ const fetchExpenses = async (userId: string): Promise<Expense[]> => {
 };
 
 // Fetch recent activities
-const fetchRecentActivities = async (userId: string) => {
+const fetchRecentActivities = async (userId: string): Promise<RecentActivityItem[]> => {
   if (!userId) return [];
   const incomesRef = collection(db, "users", userId, "incomes");
   const expensesRef = collection(db, "users", userId, "expenses");
@@ -70,28 +80,36 @@ const fetchRecentActivities = async (userId: string) => {
     getDocs(expenseQuery),
   ]);
 
-  const activities = [];
+  const activities: RecentActivityItem[] = [];
   incomeSnapshot.forEach(doc => {
     const data = doc.data();
+    let avatarChar = "I";
+    if (data.description && typeof data.description === 'string' && data.description.length > 0) {
+      avatarChar = data.description.charAt(0).toUpperCase();
+    }
     activities.push({
       id: doc.id,
-      description: data.description,
+      description: data.description || "",
       amount: `+₹${data.amount.toLocaleString()}`,
       category: "Income",
       date: (data.date as Timestamp).toDate(),
-      avatar: data.description?.charAt(0).toUpperCase() || "I",
+      avatar: avatarChar,
       type: "income",
     });
   });
   expenseSnapshot.forEach(doc => {
     const data = doc.data();
+    let avatarChar = "E";
+    if (data.description && typeof data.description === 'string' && data.description.length > 0) {
+      avatarChar = data.description.charAt(0).toUpperCase();
+    }
     activities.push({
       id: doc.id,
-      description: data.description,
+      description: data.description || "",
       amount: `-₹${data.amount.toLocaleString()}`,
       category: "Expense",
       date: (data.date as Timestamp).toDate(),
-      avatar: data.description?.charAt(0).toUpperCase() || "E",
+      avatar: avatarChar,
       type: "expense",
     });
   });
@@ -177,7 +195,7 @@ export default function DashboardPage() {
     enabled: !!user?.uid,
   });
 
-  const { data: recentActivities = [], isLoading: isLoadingActivities } = useQuery({
+  const { data: recentActivities = [], isLoading: isLoadingActivities } = useQuery<RecentActivityItem[], Error>({
     queryKey: ['recentActivities', user?.uid],
     queryFn: () => fetchRecentActivities(user!.uid),
     enabled: !!user?.uid,
@@ -358,12 +376,12 @@ export default function DashboardPage() {
 
   if (isLoading) {
      return (
-      <div className="flex flex-col gap-8">
+      <div className="flex flex-col gap-6 sm:gap-8">
         <Skeleton className="h-10 w-full sm:w-1/2 md:w-1/4" />
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-28 w-full rounded-lg" />)}
         </div>
-        <div className="grid gap-6 lg:grid-cols-3">
+        <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
           <Skeleton className="h-[300px] sm:h-[350px] w-full rounded-lg lg:col-span-2" />
           <Skeleton className="h-[300px] sm:h-[350px] w-full rounded-lg lg:col-span-1" />
         </div>
@@ -411,13 +429,13 @@ export default function DashboardPage() {
       </div>
 
 
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 grid-cols-1 xs:grid-cols-2 md:grid-cols-3">
         {metrics.map((metric) => (
           <MetricCard key={metric.id} metric={metric} />
         ))}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
         <OverviewChart data={overviewChartData} chartConfig={overviewChartConfig} />
 
         <Card className="shadow-lg lg:col-span-1">
@@ -432,11 +450,11 @@ export default function DashboardPage() {
                 {recentActivities.map((activity) => (
                   <div key={activity.id} className="flex items-center gap-4">
                     <Avatar className="h-9 w-9">
-                      <AvatarImage src={`https://placehold.co/40x40.png?text=${activity.avatar}`} alt={activity.description} data-ai-hint="transaction category"/>
+                      <AvatarImage src={`https://placehold.co/40x40.png?text=${activity.avatar}`} alt={activity.description || "Activity"} data-ai-hint="transaction category"/>
                       <AvatarFallback>{activity.avatar}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium leading-none truncate" title={activity.description}>{activity.description}</p>
+                      <p className="text-sm font-medium leading-none truncate" title={activity.description || undefined}>{activity.description || "N/A"}</p>
                       <p className="text-xs text-muted-foreground">{activity.category} &bull; {format(new Date(activity.date), "PP")}</p>
                     </div>
                     <div className={`text-sm font-medium ${activity.amount.startsWith('+') ? 'text-green-600 dark:text-green-500' : 'text-red-600 dark:text-red-500'}`}>
@@ -458,3 +476,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
