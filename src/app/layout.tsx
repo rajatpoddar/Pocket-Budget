@@ -35,7 +35,7 @@ export default function RootLayout({
         <meta property="og:url" content={siteUrl} />
         <meta property="og:title" content={title} />
         <meta property="og:description" content={description} />
-        <meta property="og:image" content="../public/og-image.png" data-ai-hint="app interface finance" />
+        <meta property="og:image" content="/og-image.png" data-ai-hint="app interface finance" />
         <meta property="og:image:alt" content={siteName} />
         <meta property="og:site_name" content={siteName} />
         {/* Twitter */}
@@ -43,7 +43,7 @@ export default function RootLayout({
         <meta property="twitter:url" content={siteUrl} />
         <meta property="twitter:title" content={title} />
         <meta property="twitter:description" content={description} />
-        <meta property="twitter:image" content="../public/og-image.png" data-ai-hint="app logo finance" />
+        <meta property="twitter:image" content="/og-image.png" data-ai-hint="app logo finance" />
         <meta name="twitter:image:alt" content={siteName} />
         {/* <meta name="twitter:site" content="@YourTwitterHandle" /> */}
         {/* <meta name="twitter:creator" content="@YourTwitterHandle" /> */}
