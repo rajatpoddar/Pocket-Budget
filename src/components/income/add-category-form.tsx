@@ -104,9 +104,8 @@ export function AddCategoryForm({ onSubmit, initialData, onCancel }: AddCategory
             <FormItem>
               <FormLabel>Category Name</FormLabel>
               <FormControl>
-                <Input placeholder="e.g., Salary or Project Alpha" {...field} disabled={initialData?.name === "Freelance"} />
+                <Input placeholder="e.g., Salary or Project Alpha" {...field} />
               </FormControl>
-              {initialData?.name === "Freelance" && <p className="text-xs text-muted-foreground pt-1">The name "Freelance" cannot be changed for the default category, but other properties can be.</p>}
               <FormMessage />
             </FormItem>
           )}

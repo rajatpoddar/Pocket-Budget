@@ -34,6 +34,7 @@ import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
+import { DEFAULT_INCOME_CATEGORIES } from '@/lib/default-categories';
 
 const fetchIncomeCategories = async (userId: string): Promise<IncomeCategory[]> => {
   if (!userId) return [];
@@ -62,7 +63,8 @@ const fetchIncomes = async (userId: string): Promise<Income[]> => {
       freelanceDetails: data.freelanceDetails ? {
         ...data.freelanceDetails,
         duesClearedAt: data.freelanceDetails.duesClearedAt ? (data.freelanceDetails.duesClearedAt as Timestamp).toDate() : undefined,
-      } : undefined,
+      } : null, // Ensure freelanceDetails can be null
+      clientId: data.clientId || null, // Ensure clientId can be null
     } as Income;
   });
 };
@@ -80,7 +82,7 @@ export default function IncomesPage() {
   const addIncomeDialogDescriptionId = React.useId();
   const quickAddDialogDescriptionId = React.useId();
 
-  const { data: incomeCategories = [], isLoading: isLoadingCategories } = useQuery<IncomeCategory[], Error>({
+  const { data: userIncomeCategories = [], isLoading: isLoadingCategories } = useQuery<IncomeCategory[], Error>({
     queryKey: ['incomeCategories', user?.uid],
     queryFn: () => fetchIncomeCategories(user!.uid),
     enabled: !!user?.uid,
@@ -98,17 +100,28 @@ export default function IncomesPage() {
     enabled: !!user?.uid,
   });
 
-  const categoryMap = useMemo(() => {
-    return incomeCategories.reduce((acc, category) => {
-      acc[category.id] = {
+  const combinedCategoryMap = useMemo(() => {
+    const map: Record<string, {name: string, hasProjectTracking: boolean, isDailyFixedIncome: boolean, dailyFixedAmount?: number, isDefault?: boolean}> = {};
+    DEFAULT_INCOME_CATEGORIES.forEach(cat => {
+      map[cat.id] = { 
+        name: cat.name, 
+        hasProjectTracking: false, 
+        isDailyFixedIncome: false,
+        isDefault: true 
+      };
+    });
+    userIncomeCategories.forEach(category => {
+      map[category.id] = {
         name: category.name, 
         hasProjectTracking: category.hasProjectTracking || false,
         isDailyFixedIncome: category.isDailyFixedIncome || false,
-        dailyFixedAmount: category.dailyFixedAmount
+        dailyFixedAmount: category.dailyFixedAmount,
+        isDefault: false
       };
-      return acc;
-    }, {} as Record<string, {name: string, hasProjectTracking: boolean, isDailyFixedIncome: boolean, dailyFixedAmount?: number}>);
-  }, [incomeCategories]);
+    });
+    return map;
+  }, [userIncomeCategories]);
+
 
   const clientMap = useMemo(() => {
     return clients.reduce((acc, client) => {
@@ -118,8 +131,8 @@ export default function IncomesPage() {
   }, [clients]);
 
   const dailyFixedIncomeCategories = useMemo(() => {
-    return incomeCategories.filter(cat => cat.isDailyFixedIncome && cat.dailyFixedAmount && cat.dailyFixedAmount > 0);
-  }, [incomeCategories]);
+    return userIncomeCategories.filter(cat => cat.isDailyFixedIncome && cat.dailyFixedAmount && cat.dailyFixedAmount > 0);
+  }, [userIncomeCategories]);
 
   const singleDailyFixedCategory = useMemo(() => {
     return dailyFixedIncomeCategories.length === 1 ? dailyFixedIncomeCategories[0] : undefined;
@@ -129,15 +142,16 @@ export default function IncomesPage() {
     const daily: Income[] = [];
     const other: Income[] = [];
     incomes.forEach(income => {
-      const categoryDetails = categoryMap[income.categoryId];
-      if (categoryDetails?.isDailyFixedIncome) {
+      const categoryDetails = combinedCategoryMap[income.categoryId];
+      // Daily fixed incomes are only from user-created categories
+      if (categoryDetails && !categoryDetails.isDefault && categoryDetails.isDailyFixedIncome) {
         daily.push(income);
       } else {
         other.push(income);
       }
     });
     return { dailyFixedIncomes: daily, otherIncomes: other };
-  }, [incomes, categoryMap]);
+  }, [incomes, combinedCategoryMap]);
 
   const addClientMutation = useMutation({
     mutationFn: async (newClientData: Omit<Client, 'id' | 'userId'>) => {
@@ -168,8 +182,8 @@ export default function IncomesPage() {
         date: Timestamp.fromDate(new Date(incomeData.date)),
         categoryId: incomeData.categoryId,
         userId: user.uid,
-        freelanceDetails: null, // Initialize with null
-        clientId: null,        // Initialize with null
+        freelanceDetails: null, 
+        clientId: null,       
       };
 
       if (incomeData.freelanceDetails) {
@@ -187,7 +201,7 @@ export default function IncomesPage() {
              dataToSave.freelanceDetails.numberOfWorkers = incomeData.freelanceDetails.numberOfWorkers;
         }
         dataToSave.freelanceDetails.duesClearedAt = incomeData.freelanceDetails.duesClearedAt ? Timestamp.fromDate(new Date(incomeData.freelanceDetails.duesClearedAt)) : null;
-        dataToSave.clientId = incomeData.clientId || null; // Ensure clientId is set, can be null if not provided
+        dataToSave.clientId = incomeData.clientId || null; 
       }
       
       return addDoc(collection(db, "users", user.uid, "incomes"), dataToSave);
@@ -219,6 +233,8 @@ export default function IncomesPage() {
           amount: dataToUpdate.amount,
           date: Timestamp.fromDate(new Date(dataToUpdate.date)),
           categoryId: dataToUpdate.categoryId,
+          freelanceDetails: null, // Ensure it's explicitly set or nulled
+          clientId: null,
       };
       
       if (dataToUpdate.freelanceDetails) {
@@ -237,9 +253,6 @@ export default function IncomesPage() {
         }
         finalData.freelanceDetails.duesClearedAt = dataToUpdate.freelanceDetails.duesClearedAt ? Timestamp.fromDate(new Date(dataToUpdate.freelanceDetails.duesClearedAt)) : null;
         finalData.clientId = dataToUpdate.clientId || null;
-      } else {
-        finalData.freelanceDetails = deleteField();
-        finalData.clientId = deleteField();
       }
 
       return updateDoc(incomeRef, finalData);
@@ -293,7 +306,7 @@ export default function IncomesPage() {
         return;
     }
     let clientIdFromForm = values.existingClientId === "--new--" || !values.existingClientId ? undefined : values.existingClientId;
-    let finalFreelanceDetails: Partial<FreelanceDetails> | undefined = undefined;
+    let finalFreelanceDetails: Partial<FreelanceDetails> | null = null; // Changed to allow null
 
     if (categoryHasProjectTracking) {
         let currentClientId = clientIdFromForm;
@@ -334,8 +347,9 @@ export default function IncomesPage() {
                  finalFreelanceDetails.duesClearedAt = new Date(editingIncome.freelanceDetails.duesClearedAt);
             }
         } else {
-            toast({ title: "Missing Project Info", description: "Project cost and client name are required for project-based income.", variant: "destructive" });
-            return;
+            // This case should ideally be prevented by form validation if project tracking is selected
+            // but as a fallback, we ensure freelanceDetails is null if essential parts are missing
+            finalFreelanceDetails = null; 
         }
         clientIdFromForm = currentClientId; 
     }
@@ -345,15 +359,10 @@ export default function IncomesPage() {
         amount: values.amount,
         date: values.date,
         categoryId: values.categoryId,
+        freelanceDetails: finalFreelanceDetails as FreelanceDetails | null, // Cast to allow null
+        clientId: categoryHasProjectTracking ? (clientIdFromForm || null) : null,
     };
-    
-    if (categoryHasProjectTracking && finalFreelanceDetails) {
-        incomePayload.freelanceDetails = finalFreelanceDetails as FreelanceDetails;
-        if (clientIdFromForm) {
-            incomePayload.clientId = clientIdFromForm;
-        }
-    }
-    
+        
     if (editingIncome) {
       updateIncomeMutation.mutate({ ...editingIncome, ...incomePayload });
     } else {
@@ -371,6 +380,8 @@ export default function IncomesPage() {
         amount: values.amount,
         date: new Date(), 
         categoryId: singleDailyFixedCategory.id,
+        freelanceDetails: null,
+        clientId: null,
     });
   };
 
@@ -385,7 +396,7 @@ export default function IncomesPage() {
         freelanceDetails: income.freelanceDetails ? {
             ...income.freelanceDetails,
             duesClearedAt: income.freelanceDetails.duesClearedAt ? new Date(income.freelanceDetails.duesClearedAt) : undefined,
-        } : undefined
+        } : null, // Ensure freelanceDetails can be null
     });
     setIsAddIncomeDialogOpen(true);
   };
@@ -456,8 +467,9 @@ export default function IncomesPage() {
           </TableHeader>
           <TableBody>
             {incomeList.map((income) => {
-              const categoryDetails = categoryMap[income.categoryId];
-              const isProjectBased = categoryDetails?.hasProjectTracking && income.freelanceDetails;
+              const categoryInfo = combinedCategoryMap[income.categoryId];
+              const categoryName = categoryInfo?.name || "N/A";
+              const isProjectBased = categoryInfo && !categoryInfo.isDefault && categoryInfo.hasProjectTracking && income.freelanceDetails;
               const dueAmount = isProjectBased ? income.freelanceDetails!.projectCost - income.amount : 0;
               const duesCleared = isProjectBased && !!income.freelanceDetails!.duesClearedAt;
               const isExpanded = expandedRowId === income.id;
@@ -478,13 +490,18 @@ export default function IncomesPage() {
                     </TableCell>
                     <TableCell className="text-right">₹{income.amount.toLocaleString()}</TableCell>
                     <TableCell className="hidden sm:table-cell">{format(new Date(income.date), "PPP")}</TableCell>
-                    <TableCell className="hidden md:table-cell break-words max-w-[100px] sm:max-w-[150px]">{categoryDetails?.name || "N/A"}</TableCell>
+                    <TableCell className="hidden md:table-cell break-words max-w-[100px] sm:max-w-[150px]">
+                      {categoryName}
+                      {categoryInfo?.isDefault && <Badge variant="outline" className="ml-2 text-xs">Default</Badge>}
+                    </TableCell>
                     <TableCell className="hidden md:table-cell">
                       {isProjectBased ? (
                         <div className="text-xs space-y-0.5 max-w-[150px] sm:max-w-xs">
                           <div className="flex items-center">
                             <Briefcase className="w-3 h-3 mr-1.5 text-muted-foreground flex-shrink-0"/>
-                            <span className="truncate" title={income.freelanceDetails!.clientName}>{income.freelanceDetails!.clientName}</span>
+                            <span className="truncate" title={clientMap[income.clientId!] || income.freelanceDetails!.clientName}>
+                               {clientMap[income.clientId!] || income.freelanceDetails!.clientName}
+                            </span>
                           </div>
                             <div>Cost: ₹{income.freelanceDetails!.projectCost.toLocaleString()}</div>
                             {income.freelanceDetails!.numberOfWorkers !== undefined && (
@@ -557,7 +574,7 @@ export default function IncomesPage() {
                         <div className="space-y-3">
                           <div>
                             <strong className="block text-xs uppercase text-muted-foreground">Category</strong>
-                            <span>{categoryDetails?.name || "N/A"}</span>
+                            <span>{categoryName} {categoryInfo?.isDefault && "(Default)"}</span>
                           </div>
 
                           {isProjectBased && (
@@ -566,7 +583,9 @@ export default function IncomesPage() {
                               <div className="text-xs space-y-0.5 mt-1">
                                 <div className="flex items-center">
                                   <Briefcase className="w-3 h-3 mr-1.5 text-muted-foreground flex-shrink-0"/>
-                                  <span className="truncate" title={income.freelanceDetails!.clientName}>{income.freelanceDetails!.clientName}</span>
+                                  <span className="truncate" title={clientMap[income.clientId!] || income.freelanceDetails!.clientName}>
+                                      {clientMap[income.clientId!] || income.freelanceDetails!.clientName}
+                                  </span>
                                 </div>
                                 <div>Cost: ₹{income.freelanceDetails!.projectCost.toLocaleString()}</div>
                                 {income.freelanceDetails!.numberOfWorkers !== undefined && (
@@ -722,7 +741,7 @@ export default function IncomesPage() {
                 {hasActiveSubscription ? (
                   <AddIncomeForm
                     onSubmit={handleFormSubmit}
-                    categories={incomeCategories}
+                    categories={userIncomeCategories} // Pass only user categories to form
                     clients={clients}
                     initialData={editingIncome || undefined}
                     onCancel={() => { setIsAddIncomeDialogOpen(false); setEditingIncome(null); }}

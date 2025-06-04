@@ -13,7 +13,7 @@ export interface UserProfile {
   displayName: string | null;
   photoURL?: string | null; 
   phoneNumber?: string | null; 
-  createdAt?: Date; // Changed to optional
+  createdAt?: Date;
   // Subscription fields
   subscriptionStatus?: 'trial' | 'active' | 'expired' | 'cancelled' | 'none' | 'pending_confirmation';
   planType?: 'monthly' | 'yearly' | 'none';
@@ -31,7 +31,8 @@ export interface IncomeCategory {
   userId?: string;
   hasProjectTracking?: boolean;
   isDailyFixedIncome?: boolean; 
-  dailyFixedAmount?: number;    
+  dailyFixedAmount?: number;
+  isDefault?: boolean; // Added for default categories
 }
 
 export interface BudgetGoal {
@@ -67,8 +68,8 @@ export interface Income {
   date: Date; 
   categoryId: string;
   userId?: string;
-  freelanceDetails?: FreelanceDetails; 
-  clientId?: string; 
+  freelanceDetails?: FreelanceDetails | null; // Allow null
+  clientId?: string | null; // Allow null
 }
 
 export interface ExpenseCategory {
@@ -76,6 +77,7 @@ export interface ExpenseCategory {
   name: string;
   description?: string;
   userId?: string;
+  isDefault?: boolean; // Added for default categories
 }
 
 export interface Expense {

@@ -68,10 +68,9 @@ export default function IncomeCategoriesPage() {
 
   const canAdd = hasActiveSubscription && (!isTrialActive || !trialLimitReached);
   
-  const canEditCategory = (category: IncomeCategory | null | undefined) => {
+  const canEditOrDeleteCategory = (category: IncomeCategory | null | undefined) => {
     if (!category) return canAdd; 
-    if (category.name === "Freelance") return hasActiveSubscription; 
-    // For existing non-Freelance categories, allow edit if trial limit not reached OR if this category is one of the allowed trial items
+    // For existing categories, allow edit/delete if trial limit not reached OR if this category is one of the allowed trial items
     return hasActiveSubscription && (!isTrialActive || !trialLimitReached || categories.slice(0, TRIAL_ITEM_LIMIT).some(c => c.id === category.id));
   };
 
@@ -88,7 +87,7 @@ export default function IncomeCategoriesPage() {
         userId: user.uid,
         dailyFixedAmount: (newCategoryData.isDailyFixedIncome && typeof newCategoryData.dailyFixedAmount === 'number' && newCategoryData.dailyFixedAmount > 0)
                            ? newCategoryData.dailyFixedAmount
-                           : null, // Ensure dailyFixedAmount is null if not applicable or invalid
+                           : null,
       };
       
       return addDoc(collection(db, "users", user.uid, "incomeCategories"), dataToSave);
@@ -106,7 +105,7 @@ export default function IncomeCategoriesPage() {
   const updateCategoryMutation = useMutation({
     mutationFn: async (updatedCategory: IncomeCategory & { dailyFixedAmount?: number }) => { 
       if (!user?.uid || !updatedCategory.id) throw new Error("User or category ID missing");
-      if (!canEditCategory(updatedCategory)) throw new Error("Action restricted by subscription or trial limits.");
+      if (!canEditOrDeleteCategory(updatedCategory)) throw new Error("Action restricted by subscription or trial limits.");
       
       const categoryRef = doc(db, "users", user.uid, "incomeCategories", updatedCategory.id);
       
@@ -140,9 +139,8 @@ export default function IncomeCategoriesPage() {
     mutationFn: async (categoryId: string) => {
       if (!user?.uid) throw new Error("User not authenticated");
       const categoryToDelete = categories.find(cat => cat.id === categoryId);
-      if (categoryToDelete?.name === "Freelance") throw new Error("The default 'Freelance' category cannot be deleted. You can rename it or change its properties if needed.");
       
-      if (!canEditCategory(categoryToDelete)) { 
+      if (!canEditOrDeleteCategory(categoryToDelete)) { 
          throw new Error("Action restricted by subscription or trial limits.");
       }
 
@@ -174,7 +172,7 @@ export default function IncomeCategoriesPage() {
   };
 
   const handleEdit = (category: IncomeCategory) => {
-    if (!canEditCategory(category)) {
+    if (!canEditOrDeleteCategory(category)) {
          toast({ title: "Action Restricted", description: "Subscription ended or trial limit reached.", variant: "destructive" });
          return;
     }
@@ -184,11 +182,7 @@ export default function IncomeCategoriesPage() {
 
   const handleDelete = (categoryId: string) => {
      const categoryToDelete = categories.find(cat => cat.id === categoryId);
-     if (categoryToDelete?.name === "Freelance") {
-        toast({ title: "Action Restricted", description: "The default 'Freelance' category cannot be deleted. You can change its properties if needed.", variant: "destructive" });
-        return;
-     }
-     if (!canEditCategory(categoryToDelete)) { 
+     if (!canEditOrDeleteCategory(categoryToDelete)) { 
          toast({ title: "Action Restricted", description: "Subscription ended or trial limit reached.", variant: "destructive" });
          return;
      }
@@ -247,10 +241,10 @@ export default function IncomeCategoriesPage() {
               <DialogTitle>{editingCategory ? "Edit" : "Add"} Income Category</DialogTitle>
               <DialogDescription id={dialogDescriptionId}>
                 {editingCategory ? "Update the details of your income category." : "Enter the details for your new income category."}
-                {!canEditCategory(editingCategory) && " Subscription or trial limits may apply."}
+                {!canEditOrDeleteCategory(editingCategory) && " Subscription or trial limits may apply."}
               </DialogDescription>
             </DialogHeader>
-            {canEditCategory(editingCategory) ? (
+            {canEditOrDeleteCategory(editingCategory) ? (
               <AddCategoryForm
                 onSubmit={handleFormSubmit}
                 initialData={editingCategory || { hasProjectTracking: false, isDailyFixedIncome: false }} 
@@ -317,24 +311,15 @@ export default function IncomeCategoriesPage() {
               let typeBadge = <Badge variant="outline" className="whitespace-nowrap">General</Badge>;
               if (category.hasProjectTracking) {
                 IconComponent = Briefcase;
-                typeBadge = <Badge variant="secondary" className="whitespace-nowrap">Project</Badge>;
+                typeBadge = <Badge variant="secondary" className="whitespace-nowrap">Project Based</Badge>;
               } else if (category.isDailyFixedIncome) {
                 IconComponent = Repeat;
-                typeBadge = <Badge variant="default" className="bg-blue-500 hover:bg-blue-600 whitespace-normal text-center h-auto py-1">Daily: ₹{category.dailyFixedAmount?.toLocaleString()}</Badge>;
+                typeBadge = <Badge variant="default" className="bg-blue-500 hover:bg-blue-600 whitespace-normal text-center h-auto py-1">Daily Fixed: ₹{category.dailyFixedAmount?.toLocaleString()}</Badge>;
               }
               
-              const isDefaultFreelanceCategory = category.name === "Freelance";
-              const editActionDisabled = !canEditCategory(category);
-              const deleteActionDisabled = !canEditCategory(category) || isDefaultFreelanceCategory;
+              const actionDisabled = !canEditOrDeleteCategory(category);
+              let actionTitle = actionDisabled ? "Subscription/trial limits apply" : undefined;
               
-              let editTitle = "Edit";
-              if (editActionDisabled && !isDefaultFreelanceCategory) editTitle = "Subscription/trial limits apply";
-              else if (editActionDisabled && isDefaultFreelanceCategory && !hasActiveSubscription) editTitle = "Activate subscription to edit";
-
-              let deleteTitle = "Delete";
-              if (isDefaultFreelanceCategory) deleteTitle = "Default 'Freelance' category cannot be deleted.";
-              else if (deleteActionDisabled) deleteTitle = "Subscription/trial limits apply";
-
               return (
                 <TableRow key={category.id}>
                   <TableCell className="table-cell sm:w-auto">
@@ -350,8 +335,8 @@ export default function IncomeCategoriesPage() {
                         variant="ghost"
                         size="icon"
                         onClick={() => handleEdit(category)}
-                        title={editTitle}
-                        disabled={editActionDisabled}
+                        title={actionTitle || "Edit"}
+                        disabled={actionDisabled}
                       >
                         <Edit3 className="h-4 w-4" />
                         <span className="sr-only">Edit</span>
@@ -360,8 +345,8 @@ export default function IncomeCategoriesPage() {
                         variant="ghost"
                         size="icon"
                         onClick={() => handleDelete(category.id)}
-                        title={deleteTitle}
-                        disabled={deleteActionDisabled}
+                        title={actionTitle || "Delete"}
+                        disabled={actionDisabled}
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />
                         <span className="sr-only">Delete</span>
@@ -371,25 +356,18 @@ export default function IncomeCategoriesPage() {
                     <div className="md:hidden">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" disabled={editActionDisabled && deleteActionDisabled} title="Actions">
+                          <Button variant="ghost" size="icon" disabled={actionDisabled} title={actionTitle || "Actions"}>
                             <MoreHorizontal className="h-4 w-4" />
                             <span className="sr-only">Actions</span>
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEdit(category)} disabled={editActionDisabled}>
+                          <DropdownMenuItem onClick={() => handleEdit(category)} disabled={actionDisabled}>
                             <Edit3 className="mr-2 h-4 w-4" /> Edit
                           </DropdownMenuItem>
-                          {!isDefaultFreelanceCategory && (
-                             <DropdownMenuItem onClick={() => handleDelete(category.id)} disabled={deleteActionDisabled} className="text-destructive focus:text-destructive focus:bg-destructive/10">
-                               <Trash2 className="mr-2 h-4 w-4" /> Delete
-                             </DropdownMenuItem>
-                          )}
-                           {isDefaultFreelanceCategory && (
-                             <DropdownMenuItem disabled={true} title={deleteTitle}>
-                               <Trash2 className="mr-2 h-4 w-4 opacity-50" /> <span className="opacity-50">Delete</span>
-                             </DropdownMenuItem>
-                          )}
+                          <DropdownMenuItem onClick={() => handleDelete(category.id)} disabled={actionDisabled} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                            <Trash2 className="mr-2 h-4 w-4" /> Delete
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>

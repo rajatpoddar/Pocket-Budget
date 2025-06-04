@@ -31,6 +31,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { DEFAULT_EXPENSE_CATEGORIES } from '@/lib/default-categories';
+import { Badge } from '@/components/ui/badge';
+
 
 const fetchExpenseCategories = async (userId: string): Promise<ExpenseCategory[]> => {
   if (!userId) return [];
@@ -63,7 +66,7 @@ export default function ExpensesPage() {
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
   const dialogDescriptionId = React.useId();
 
-  const { data: expenseCategories = [], isLoading: isLoadingCategories } = useQuery<ExpenseCategory[], Error>({
+  const { data: userExpenseCategories = [], isLoading: isLoadingCategories } = useQuery<ExpenseCategory[], Error>({
     queryKey: ['expenseCategories', user?.uid],
     queryFn: () => fetchExpenseCategories(user!.uid),
     enabled: !!user?.uid,
@@ -75,12 +78,17 @@ export default function ExpensesPage() {
     enabled: !!user?.uid,
   });
 
-  const categoryMap = useMemo(() => {
-    return expenseCategories.reduce((acc, category) => {
-      acc[category.id] = category.name;
-      return acc;
-    }, {} as Record<string, string>);
-  }, [expenseCategories]);
+  const combinedCategoryMap = useMemo(() => {
+    const map: Record<string, { name: string, isDefault?: boolean }> = {};
+    DEFAULT_EXPENSE_CATEGORIES.forEach(cat => {
+      map[cat.id] = { name: cat.name, isDefault: true };
+    });
+    userExpenseCategories.forEach(category => {
+      map[category.id] = { name: category.name, isDefault: false };
+    });
+    return map;
+  }, [userExpenseCategories]);
+
 
   const addExpenseMutation = useMutation({
     mutationFn: async (expenseData: Omit<Expense, 'id' | 'userId'>) => {
@@ -233,7 +241,7 @@ export default function ExpensesPage() {
              {hasActiveSubscription ? (
                 <AddExpenseForm
                   onSubmit={handleFormSubmit}
-                  categories={expenseCategories}
+                  categories={userExpenseCategories} // Pass only user categories to form
                   initialData={editingExpense ? {
                       ...editingExpense,
                       date: new Date(editingExpense.date) 
@@ -289,6 +297,8 @@ export default function ExpensesPage() {
             <TableBody>
               {expenses.map((expense) => {
                 const isExpanded = expandedRowId === expense.id;
+                const categoryInfo = combinedCategoryMap[expense.categoryId];
+                const categoryName = categoryInfo?.name || "N/A";
                 return (
                   <React.Fragment key={expense.id}>
                     <TableRow 
@@ -305,7 +315,10 @@ export default function ExpensesPage() {
                       </TableCell>
                       <TableCell className="text-right">₹{expense.amount.toFixed(2)}</TableCell>
                       <TableCell className="hidden sm:table-cell">{format(new Date(expense.date), "PPP")}</TableCell>
-                      <TableCell className="hidden md:table-cell break-words max-w-[100px] sm:max-w-[150px]">{categoryMap[expense.categoryId] || "N/A"}</TableCell>
+                      <TableCell className="hidden md:table-cell break-words max-w-[100px] sm:max-w-[150px]">
+                        {categoryName}
+                        {categoryInfo?.isDefault && <Badge variant="outline" className="ml-2 text-xs">Default</Badge>}
+                      </TableCell>
                       <TableCell className="text-right hidden md:table-cell">
                         <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleEdit(expense); }} className="mr-2" disabled={!hasActiveSubscription} title="Edit Expense">
                           <Edit3 className="h-4 w-4" />
@@ -328,7 +341,7 @@ export default function ExpensesPage() {
                           <div className="space-y-3">
                             <div>
                               <strong className="block text-xs uppercase text-muted-foreground">Category</strong>
-                              <span>{categoryMap[expense.categoryId] || "N/A"}</span>
+                              <span>{categoryName} {categoryInfo?.isDefault && "(Default)"}</span>
                             </div>
                             <div>
                               <strong className="block text-xs uppercase text-muted-foreground">Actions</strong>

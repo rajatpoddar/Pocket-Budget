@@ -1,6 +1,7 @@
 
 "use client";
 
+import React from 'react'; // Added React import
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -21,6 +22,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import type { Expense, ExpenseCategory } from "@/types";
+import { DEFAULT_EXPENSE_CATEGORIES } from '@/lib/default-categories';
 
 const formSchema = z.object({
   description: z.string().min(2, "Description must be at least 2 characters.").max(100, "Description must be at most 100 characters."),
@@ -33,12 +35,18 @@ type AddExpenseFormValues = z.infer<typeof formSchema>;
 
 interface AddExpenseFormProps {
   onSubmit: (values: AddExpenseFormValues) => void;
-  categories: ExpenseCategory[];
+  categories: ExpenseCategory[]; // User's custom categories
   initialData?: Partial<Expense>;
   onCancel?: () => void;
 }
 
-export function AddExpenseForm({ onSubmit, categories, initialData, onCancel }: AddExpenseFormProps) {
+export function AddExpenseForm({ onSubmit, categories: userCategories, initialData, onCancel }: AddExpenseFormProps) {
+  const allCategories = React.useMemo(() => {
+    const combined = [...DEFAULT_EXPENSE_CATEGORIES, ...userCategories];
+    const uniqueCategories = Array.from(new Map(combined.map(cat => [cat.id, cat])).values());
+    return uniqueCategories.sort((a,b) => a.name.localeCompare(b.name));
+  }, [userCategories]);
+  
   const form = useForm<AddExpenseFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -119,6 +127,7 @@ export function AddExpenseForm({ onSubmit, categories, initialData, onCancel }: 
                     selected={field.value}
                     onSelect={field.onChange}
                     initialFocus
+                    disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
                   />
                 </PopoverContent>
               </Popover>
@@ -139,9 +148,10 @@ export function AddExpenseForm({ onSubmit, categories, initialData, onCancel }: 
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {categories.map((category) => (
+                  {allCategories.map((category) => (
                     <SelectItem key={category.id} value={category.id}>
                       {category.name}
+                      {category.isDefault ? " (Default)" : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>

@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 import type { Income, IncomeCategory, Client, FreelanceDetails } from "@/types";
 import { Label } from '../ui/label';
 import { Separator } from '../ui/separator';
+import { DEFAULT_INCOME_CATEGORIES } from '@/lib/default-categories';
 
 const NEW_CLIENT_VALUE = "--new--";
 
@@ -54,13 +55,20 @@ type AddIncomeFormValues = z.infer<typeof baseSchema>;
 
 interface AddIncomeFormProps {
   onSubmit: (values: AddIncomeFormValues, isNewClient: boolean, categoryHasProjectTracking?: boolean) => void;
-  categories: IncomeCategory[];
+  categories: IncomeCategory[]; // User's custom categories
   clients: Client[];
   initialData?: Partial<Income> & { date: Date }; 
   onCancel?: () => void;
 }
 
-export function AddIncomeForm({ onSubmit, categories, clients, initialData, onCancel }: AddIncomeFormProps) {
+export function AddIncomeForm({ onSubmit, categories: userCategories, clients, initialData, onCancel }: AddIncomeFormProps) {
+  const allCategories = React.useMemo(() => {
+    const combined = [...DEFAULT_INCOME_CATEGORIES, ...userCategories];
+    // Remove duplicates by ID, preferring user categories over defaults if IDs somehow clash (should not happen with 'default-' prefix)
+    const uniqueCategories = Array.from(new Map(combined.map(cat => [cat.id, cat])).values());
+    return uniqueCategories.sort((a,b) => a.name.localeCompare(b.name));
+  }, [userCategories]);
+
   const form = useForm<AddIncomeFormValues>({
     resolver: zodResolver(baseSchema),
     defaultValues: {
@@ -81,41 +89,50 @@ export function AddIncomeForm({ onSubmit, categories, clients, initialData, onCa
   const selectedExistingClientId = form.watch("existingClientId");
 
   const [currentCategory, setCurrentCategory] = useState<IncomeCategory | undefined>(
-    initialData?.categoryId ? categories.find(c => c.id === initialData.categoryId) : undefined
+    initialData?.categoryId ? allCategories.find(c => c.id === initialData.categoryId) : undefined
   );
   const [isNewClientEntry, setIsNewClientEntry] = useState(false);
 
   useEffect(() => {
-    const category = categories.find(c => c.id === selectedCategoryId);
+    const category = allCategories.find(c => c.id === selectedCategoryId);
     setCurrentCategory(category);
 
-    if (category?.hasProjectTracking) {
+    // Only user-defined categories can have project tracking or be daily fixed income
+    const isUserCategory = category && !category.isDefault;
+
+    if (isUserCategory && category?.hasProjectTracking) {
         setIsNewClientEntry(selectedExistingClientId === NEW_CLIENT_VALUE || !selectedExistingClientId);
     } else {
         setIsNewClientEntry(false);
-        form.setValue("existingClientId", "");
-        form.setValue("clientName", "");
-        form.setValue("clientNumber", "");
-        form.setValue("clientAddress", "");
-        form.setValue("projectCost", undefined);
-        form.setValue("numberOfWorkers", undefined);
+        // Reset project-specific fields if category is default or doesn't have project tracking
+        if (category?.isDefault || (isUserCategory && !category.hasProjectTracking)) {
+            form.setValue("existingClientId", "");
+            form.setValue("clientName", "");
+            form.setValue("clientNumber", "");
+            form.setValue("clientAddress", "");
+            form.setValue("projectCost", undefined);
+            form.setValue("numberOfWorkers", undefined);
+        }
     }
     
-    if (category?.isDailyFixedIncome && category.dailyFixedAmount !== undefined && !initialData?.amount) {
+    if (isUserCategory && category?.isDailyFixedIncome && category.dailyFixedAmount !== undefined && !initialData?.amount) {
         form.setValue("amount", category.dailyFixedAmount);
     }
 
-  }, [selectedCategoryId, categories, form, selectedExistingClientId, initialData]);
+  }, [selectedCategoryId, allCategories, form, selectedExistingClientId, initialData]);
 
   useEffect(() => {
-    if (currentCategory?.hasProjectTracking && selectedExistingClientId && selectedExistingClientId !== NEW_CLIENT_VALUE) {
+    const category = allCategories.find(c => c.id === selectedCategoryId);
+    const isUserCategoryWithProjectTracking = category && !category.isDefault && category.hasProjectTracking;
+
+    if (isUserCategoryWithProjectTracking && selectedExistingClientId && selectedExistingClientId !== NEW_CLIENT_VALUE) {
       const client = clients.find(c => c.id === selectedExistingClientId);
       if (client) {
         form.setValue("clientName", client.name);
         form.setValue("clientNumber", client.number || "");
         form.setValue("clientAddress", client.address || "");
       }
-    } else if (currentCategory?.hasProjectTracking && isNewClientEntry) {
+    } else if (isUserCategoryWithProjectTracking && isNewClientEntry) {
         if(!initialData?.clientId || initialData.clientId !== selectedExistingClientId) {
             if(form.getValues("existingClientId") === NEW_CLIENT_VALUE){ 
                  form.setValue("clientName", "");
@@ -124,14 +141,16 @@ export function AddIncomeForm({ onSubmit, categories, clients, initialData, onCa
             }
         }
     }
-  }, [selectedExistingClientId, clients, form, currentCategory, isNewClientEntry, initialData]);
+  }, [selectedExistingClientId, clients, form, currentCategory, isNewClientEntry, initialData, selectedCategoryId, allCategories]);
 
 
   const handleSubmit = (values: AddIncomeFormValues) => {
     let valid = true;
     form.clearErrors(); 
+    
+    const isProjectTrackingCategory = currentCategory && !currentCategory.isDefault && currentCategory.hasProjectTracking;
 
-    if (currentCategory?.hasProjectTracking) {
+    if (isProjectTrackingCategory) {
       if (isNewClientEntry && (!values.clientName || values.clientName.trim().length < 2)) {
         form.setError("clientName", { type: "manual", message: "Client name must be at least 2 characters for new clients." });
         valid = false;
@@ -149,8 +168,8 @@ export function AddIncomeForm({ onSubmit, categories, clients, initialData, onCa
 
     onSubmit(
         values, 
-        !!(currentCategory?.hasProjectTracking && isNewClientEntry), 
-        currentCategory?.hasProjectTracking
+        !!(isProjectTrackingCategory && isNewClientEntry), 
+        isProjectTrackingCategory
     );
     
     if (!initialData) { 
@@ -170,6 +189,9 @@ export function AddIncomeForm({ onSubmit, categories, clients, initialData, onCa
         setIsNewClientEntry(false);
     }
   };
+
+  const categoryForProjectTracking = currentCategory && !currentCategory.isDefault && currentCategory.hasProjectTracking;
+  const categoryForDailyFixed = currentCategory && !currentCategory.isDefault && currentCategory.isDailyFixedIncome;
 
   return (
     <Form {...form}>
@@ -197,12 +219,13 @@ export function AddIncomeForm({ onSubmit, categories, clients, initialData, onCa
               <Select 
                 onValueChange={(value) => {
                   field.onChange(value);
-                  const cat = categories.find(c => c.id === value);
-                  if (!cat?.hasProjectTracking) {
-                    form.setValue("existingClientId", ""); 
-                  }
-                  if (cat?.isDailyFixedIncome && cat.dailyFixedAmount !== undefined) {
+                  const cat = allCategories.find(c => c.id === value);
+                  if (cat && !cat.isDefault && cat.isDailyFixedIncome && cat.dailyFixedAmount !== undefined) {
                     form.setValue("amount", cat.dailyFixedAmount);
+                  }
+                  // If not a project tracking category (or default), clear client selection
+                  if (!cat || cat.isDefault || !cat.hasProjectTracking) {
+                     form.setValue("existingClientId", ""); 
                   }
                 }} 
                 defaultValue={field.value}
@@ -213,11 +236,12 @@ export function AddIncomeForm({ onSubmit, categories, clients, initialData, onCa
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {categories.map((category) => (
+                  {allCategories.map((category) => (
                     <SelectItem key={category.id} value={category.id}>
                       {category.name} 
-                      {category.hasProjectTracking ? " (Project)" : ""}
-                      {category.isDailyFixedIncome ? ` (Fixed: ₹${category.dailyFixedAmount?.toLocaleString()})` : ""}
+                      {category.isDefault ? " (Default)" : ""}
+                      {!category.isDefault && category.hasProjectTracking ? " (Project)" : ""}
+                      {!category.isDefault && category.isDailyFixedIncome ? ` (Fixed: ₹${category.dailyFixedAmount?.toLocaleString()})` : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -227,7 +251,7 @@ export function AddIncomeForm({ onSubmit, categories, clients, initialData, onCa
           )}
         />
 
-        {currentCategory?.hasProjectTracking && (
+        {categoryForProjectTracking && (
           <>
             <Separator className="my-6" />
             <p className="text-sm font-medium text-muted-foreground flex items-center"><Info className="w-4 h-4 mr-2 text-primary"/>Project Details</p>
@@ -240,6 +264,7 @@ export function AddIncomeForm({ onSubmit, categories, clients, initialData, onCa
                   <Select
                     onValueChange={field.onChange}
                     defaultValue={field.value}
+                    value={field.value}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -267,7 +292,7 @@ export function AddIncomeForm({ onSubmit, categories, clients, initialData, onCa
                 <FormItem>
                   <FormLabel>Client Name</FormLabel>
                   <FormControl>
-                    <Input placeholder="Client Co. Ltd." {...field} disabled={currentCategory?.hasProjectTracking && !isNewClientEntry && !!selectedExistingClientId} />
+                    <Input placeholder="Client Co. Ltd." {...field} disabled={categoryForProjectTracking && !isNewClientEntry && !!selectedExistingClientId} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -280,7 +305,7 @@ export function AddIncomeForm({ onSubmit, categories, clients, initialData, onCa
                 <FormItem>
                   <FormLabel>Client Contact Number (Optional)</FormLabel>
                   <FormControl>
-                    <Input placeholder="9876543210" {...field} disabled={currentCategory?.hasProjectTracking && !isNewClientEntry && !!selectedExistingClientId}/>
+                    <Input placeholder="9876543210" {...field} disabled={categoryForProjectTracking && !isNewClientEntry && !!selectedExistingClientId}/>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -293,7 +318,7 @@ export function AddIncomeForm({ onSubmit, categories, clients, initialData, onCa
                 <FormItem>
                   <FormLabel>Client Address (Optional)</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="123 Business Rd, Suite 404, City" {...field} disabled={currentCategory?.hasProjectTracking && !isNewClientEntry && !!selectedExistingClientId}/>
+                    <Textarea placeholder="123 Business Rd, Suite 404, City" {...field} disabled={categoryForProjectTracking && !isNewClientEntry && !!selectedExistingClientId}/>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -362,10 +387,10 @@ export function AddIncomeForm({ onSubmit, categories, clients, initialData, onCa
                   {...field} 
                   value={field.value ?? ""}
                   onChange={e => field.onChange(parseFloat(e.target.value) || 0)} 
-                  readOnly={currentCategory?.isDailyFixedIncome && currentCategory.dailyFixedAmount === field.value && !initialData}
+                  readOnly={categoryForDailyFixed && currentCategory?.dailyFixedAmount === field.value && !initialData?.amount}
                 />
               </FormControl>
-              {currentCategory?.isDailyFixedIncome && currentCategory.dailyFixedAmount === field.value && (
+              {categoryForDailyFixed && currentCategory?.dailyFixedAmount === field.value && (
                  <FormDescription className="text-xs">Amount pre-filled from daily fixed income category setting.</FormDescription>
               )}
               <FormMessage />
@@ -420,4 +445,3 @@ export function AddIncomeForm({ onSubmit, categories, clients, initialData, onCa
     </Form>
   );
 }
-

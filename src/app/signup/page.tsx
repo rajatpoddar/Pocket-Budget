@@ -9,14 +9,13 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase'; 
-import { doc, setDoc, Timestamp, collection, addDoc } from 'firebase/firestore'; 
+import { doc, setDoc, Timestamp } from 'firebase/firestore'; 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { UserPlus } from 'lucide-react';
-import type { UserProfile } from '@/types';
 import { addDays } from 'date-fns';
 
 const signupSchema = z.object({
@@ -71,15 +70,7 @@ export default function SignupPage() {
 
         await setDoc(doc(db, "users", user.uid), firestoreData);
 
-        const incomeCategoriesRef = collection(db, "users", user.uid, "incomeCategories");
-        await addDoc(incomeCategoriesRef, {
-          name: "Freelance",
-          description: "Income from freelance projects and similar work.",
-          userId: user.uid,
-          hasProjectTracking: true, 
-          isDailyFixedIncome: false, 
-          dailyFixedAmount: null, 
-        });
+        // Removed automatic creation of "Freelance" income category
       }
       
       toast({ title: 'Signup Successful', description: "Welcome to Pocket Budget! Your 15-day trial has started." });
