@@ -121,7 +121,7 @@ export function AddExpenseForm({ onSubmit, categories: userCategories, initialDa
                     </Button>
                   </FormControl>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
+                <PopoverContent className="w-auto p-0 z-[51]" align="start">
                   <Calendar
                     mode="single"
                     selected={field.value}
