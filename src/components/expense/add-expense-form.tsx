@@ -88,7 +88,7 @@ export function AddExpenseForm({ onSubmit, categories: userCategories, initialDa
           name="amount"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Amount (₹)</FormLabel>
+              <FormLabel>Amount (â‚¹)</FormLabel>
               <FormControl>
                 <Input type="number" placeholder="3000" {...field} />
               </FormControl>
@@ -102,7 +102,7 @@ export function AddExpenseForm({ onSubmit, categories: userCategories, initialDa
           render={({ field }) => (
             <FormItem className="flex flex-col">
               <FormLabel>Date</FormLabel>
-              <Popover>
+              <Popover modal={true}>
                 <PopoverTrigger asChild>
                   <FormControl>
                     <Button
