@@ -419,7 +419,7 @@ export function AddIncomeForm({ onSubmit, categories: userCategories, clients, i
                       ) : (
                         <span>Pick a date</span>
                       )}
-                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                      <CalendarIcon className="ml-auto h-4 w-4 opacity-51" />
                     </Button>
                   </FormControl>
                 </PopoverTrigger>
