@@ -241,7 +241,7 @@ export function AddIncomeForm({ onSubmit, categories: userCategories, clients, i
                       {category.name} 
                       {category.isDefault ? " (Default)" : ""}
                       {!category.isDefault && category.hasProjectTracking ? " (Project)" : ""}
-                      {!category.isDefault && category.isDailyFixedIncome ? ` (Fixed: ₹${category.dailyFixedAmount?.toLocaleString()})` : ""}
+                      {!category.isDefault && category.isDailyFixedIncome ? ` (Fixed: â‚¹${category.dailyFixedAmount?.toLocaleString()})` : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -329,7 +329,7 @@ export function AddIncomeForm({ onSubmit, categories: userCategories, clients, i
               name="projectCost"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Total Project Cost (₹)</FormLabel>
+                  <FormLabel>Total Project Cost (â‚¹)</FormLabel>
                   <FormControl>
                     <Input 
                       type="number" 
@@ -379,7 +379,7 @@ export function AddIncomeForm({ onSubmit, categories: userCategories, clients, i
           name="amount"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Amount Received (₹)</FormLabel>
+              <FormLabel>Amount Received (â‚¹)</FormLabel>
               <FormControl>
                 <Input 
                   type="number" 
@@ -404,7 +404,7 @@ export function AddIncomeForm({ onSubmit, categories: userCategories, clients, i
           render={({ field }) => (
             <FormItem className="flex flex-col">
               <FormLabel>Date Received</FormLabel>
-              <Popover>
+              <Popover modal={true}>
                 <PopoverTrigger asChild>
                   <FormControl>
                     <Button
@@ -444,4 +444,4 @@ export function AddIncomeForm({ onSubmit, categories: userCategories, clients, i
       </form>
     </Form>
   );
-}
+      }
