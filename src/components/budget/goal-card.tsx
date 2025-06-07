@@ -20,7 +20,7 @@ export function GoalCard({ goal, onEdit, onDelete, className, defaultIcon, disab
   const IconComponent = defaultIcon || Target;
 
   return (
-    <Card className={cn("shadow-lg flex flex-col", className)}>
+    <Card className={cn("shadow-lg flex flex-col hover:shadow-xl hover:scale-[1.02] transition-all duration-200 ease-out", className)}>
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg font-semibold flex items-center">

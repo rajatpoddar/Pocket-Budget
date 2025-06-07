@@ -312,7 +312,7 @@ export default function ClientsPage() {
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {clientFinancialSummaries.map((client) => (
-          <Card key={client.id} className="shadow-lg flex flex-col">
+          <Card key={client.id} className="shadow-lg flex flex-col hover:shadow-xl hover:scale-[1.02] transition-all duration-200 ease-out">
             <CardHeader>
               <div className="flex justify-between items-start">
                 <CardTitle className="text-lg font-semibold break-words max-w-full">{client.name}</CardTitle>
@@ -399,7 +399,7 @@ export default function ClientsPage() {
                   ) : (
                     <CheckCircle className="h-4 w-4 mr-2" />
                   )}
-                  Clear
+                  Clear All Dues
                 </Button>
               )}
             </CardFooter>

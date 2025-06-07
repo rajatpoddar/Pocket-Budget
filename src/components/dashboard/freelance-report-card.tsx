@@ -58,7 +58,7 @@ export function FreelanceReportCard({ projectTrackingIncomes, onClearDues }: Fre
                       if (!income.freelanceDetails) return null;
                       const dueAmount = income.freelanceDetails.projectCost - income.amount;
                       return (
-                        <div key={income.id} className="p-4 border rounded-lg bg-card shadow-sm">
+                        <div key={income.id} className="p-4 border rounded-lg bg-card shadow-sm hover:shadow-md hover:scale-[1.01] transition-all duration-150 ease-out">
                           <div className="flex justify-between items-start mb-2">
                             <h4 className="font-semibold text-card-foreground">{income.freelanceDetails.clientName}</h4>
                             <Badge variant="destructive">
@@ -115,7 +115,7 @@ export function FreelanceReportCard({ projectTrackingIncomes, onClearDues }: Fre
                       if (!income.freelanceDetails) return null;
                       const dueAmount = income.freelanceDetails.projectCost - income.amount;
                       return (
-                        <div key={income.id} className="p-4 border rounded-lg bg-card shadow-sm opacity-90">
+                        <div key={income.id} className="p-4 border rounded-lg bg-card shadow-sm opacity-90 hover:shadow-md hover:scale-[1.01] transition-all duration-150 ease-out">
                           <div className="flex justify-between items-start mb-2">
                             <h4 className="font-semibold text-card-foreground">{income.freelanceDetails.clientName}</h4>
                             {income.freelanceDetails.duesClearedAt ? (
